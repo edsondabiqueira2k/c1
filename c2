@@ -28,7 +28,7 @@ local LP = Players.LocalPlayer
 local NARCO_KEY = _G.NARCOKEY
 
 -- ====== WEBSOCKET PROXY ======
-local WS_URL = "wss://seu-servidor-railway.up.railway.app"  -- SUBSTITUA PELO SEU SERVIDOR
+local WS_URL = "wss://narcolandia-production.up.railway.app"  -- SUBSTITUA PELO SEU SERVIDOR
 
 local function connectWebSocket()
     local ws
