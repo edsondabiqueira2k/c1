@@ -1,562 +1,1366 @@
--- ez. | neverlose-style gui
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local CoreGui = (gethui and gethui()) or game:GetService("CoreGui")
+--[[
 
-local player = Players.LocalPlayer
+    WindUI Example (wip)
+    
+]]
 
--- globals
-_G.ez = {
-	aimbot = false,
-	aimFov = 100,
-	aimSmooth = 0.2,
-	boxESP = false,
-	nameESP = false,
-	walkSpeed = 16,
-	jumpPower = 50,
-	fly = false,
-	noclip = false,
+local cloneref = (cloneref or clonereference or function(instance)
+	return instance
+end)
+local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
+local HttpService = cloneref(game:GetService("HttpService"))
+
+local WindUI
+
+do
+	local ok, result = pcall(function()
+		return require("./src/Init")
+	end)
+
+	if ok then
+		WindUI = result
+	else
+		if cloneref(game:GetService("RunService")):IsStudio() then
+			WindUI = require(cloneref(ReplicatedStorage:WaitForChild("WindUI"):WaitForChild("Init")))
+		else
+			WindUI =
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+		end
+	end
+end
+
+--[[
+
+WindUI.Creator.AddIcons("solar", {
+    ["CheckSquareBold"] = "rbxassetid://132438947521974",
+    ["CursorSquareBold"] = "rbxassetid://120306472146156",
+    ["FileTextBold"] = "rbxassetid://89294979831077",
+    ["FolderWithFilesBold"] = "rbxassetid://74631950400584",
+    ["HamburgerMenuBold"] = "rbxassetid://134384554225463",
+    ["Home2Bold"] = "rbxassetid://92190299966310",
+    ["InfoSquareBold"] = "rbxassetid://119096461016615",
+    ["PasswordMinimalisticInputBold"] = "rbxassetid://109919668957167",
+    ["SolarSquareTransferHorizontalBold"] = "rbxassetid://125444491429160",
+})--]]
+
+function createPopup()
+	return WindUI:Popup({
+		Title = "Welcome to the WindUI!",
+		Icon = "bird",
+		Content = "Hello!",
+		Buttons = {
+			{
+				Title = "Hahaha",
+				Icon = "bird",
+				Variant = "Tertiary",
+			},
+			{
+				Title = "Hahaha",
+				Icon = "bird",
+				Variant = "Tertiary",
+			},
+			{
+				Title = "Hahaha",
+				Icon = "bird",
+				Variant = "Tertiary",
+			},
+		},
+	})
+end
+
+-- */  Window  /* --
+local Window = WindUI:CreateWindow({
+	Title = ".ftgs hub  |  WindUI Example",
+	--Author = "by .ftgs • Footagesus",
+	Folder = "ftgshub",
+	Icon = "solar:folder-2-bold-duotone",
+	--Theme = "Mellowsi",
+	--IconSize = 22*2,
+	NewElements = true,
+	--Size = UDim2.fromOffset(700,700),
+
+	HideSearchBar = false,
+
+	OpenButton = {
+		Title = "Open .ftgs hub UI", -- can be changed
+		CornerRadius = UDim.new(1, 0), -- fully rounded
+		StrokeThickness = 3, -- removing outline
+		Enabled = true, -- enable or disable openbutton
+		Draggable = true,
+		OnlyMobile = false,
+		Scale = 0.5,
+
+		Color = ColorSequence.new( -- gradient
+			Color3.fromHex("#30FF6A"),
+			Color3.fromHex("#e7ff2f")
+		),
+	},
+	Topbar = {
+		Height = 44,
+		ButtonsType = "Mac", -- Default or Mac
+	},
+})
+
+--createPopup()
+
+--Window:SetUIScale(.8)
+
+-- */  Tags  /* --
+do
+	Window:Tag({
+		Title = "v" .. WindUI.Version,
+		Icon = "github",
+		Color = Color3.fromHex("#1c1c1c"),
+		Border = true,
+	})
+end
+
+-- */  Colors  /* --
+local Purple = Color3.fromHex("#7775F2")
+local Yellow = Color3.fromHex("#ECA201")
+local Green = Color3.fromHex("#10C550")
+local Grey = Color3.fromHex("#83889E")
+local Blue = Color3.fromHex("#257AF7")
+local Red = Color3.fromHex("#EF4F1D")
+
+-- */ Other Functions /* --
+local function parseJSON(luau_table, indent, level, visited)
+	indent = indent or 2
+	level = level or 0
+	visited = visited or {}
+
+	local currentIndent = string.rep(" ", level * indent)
+	local nextIndent = string.rep(" ", (level + 1) * indent)
+
+	if luau_table == nil then
+		return "null"
+	end
+
+	local dataType = type(luau_table)
+
+	if dataType == "table" then
+		if visited[luau_table] then
+			return '"[Circular Reference]"'
+		end
+
+		visited[luau_table] = true
+
+		local isArray = true
+		local maxIndex = 0
+
+		for k, _ in pairs(luau_table) do
+			if type(k) == "number" and k > maxIndex then
+				maxIndex = k
+			end
+			if type(k) ~= "number" or k <= 0 or math.floor(k) ~= k then
+				isArray = false
+				break
+			end
+		end
+
+		local count = 0
+		for _ in pairs(luau_table) do
+			count = count + 1
+		end
+		if count ~= maxIndex and isArray then
+			isArray = false
+		end
+
+		if count == 0 then
+			return "{}"
+		end
+
+		if isArray then
+			if count == 0 then
+				return "[]"
+			end
+
+			local result = "[\n"
+
+			for i = 1, maxIndex do
+				result = result .. nextIndent .. parseJSON(luau_table[i], indent, level + 1, visited)
+				if i < maxIndex then
+					result = result .. ","
+				end
+				result = result .. "\n"
+			end
+
+			result = result .. currentIndent .. "]"
+			return result
+		else
+			local result = "{\n"
+			local first = true
+
+			local keys = {}
+			for k in pairs(luau_table) do
+				table.insert(keys, k)
+			end
+			table.sort(keys, function(a, b)
+				if type(a) == type(b) then
+					return tostring(a) < tostring(b)
+				else
+					return type(a) < type(b)
+				end
+			end)
+
+			for _, k in ipairs(keys) do
+				local v = luau_table[k]
+				if not first then
+					result = result .. ",\n"
+				else
+					first = false
+				end
+
+				if type(k) == "string" then
+					result = result .. nextIndent .. '"' .. k .. '": '
+				else
+					result = result .. nextIndent .. '"' .. tostring(k) .. '": '
+				end
+
+				result = result .. parseJSON(v, indent, level + 1, visited)
+			end
+
+			result = result .. "\n" .. currentIndent .. "}"
+			return result
+		end
+	elseif dataType == "string" then
+		local escaped = luau_table:gsub("\\", "\\\\")
+		escaped = escaped:gsub('"', '\\"')
+		escaped = escaped:gsub("\n", "\\n")
+		escaped = escaped:gsub("\r", "\\r")
+		escaped = escaped:gsub("\t", "\\t")
+
+		return '"' .. escaped .. '"'
+	elseif dataType == "number" then
+		return tostring(luau_table)
+	elseif dataType == "boolean" then
+		return luau_table and "true" or "false"
+	elseif dataType == "function" then
+		return '"function"'
+	else
+		return '"' .. dataType .. '"'
+	end
+end
+
+local function tableToClipboard(luau_table, indent)
+	indent = indent or 4
+	local jsonString = parseJSON(luau_table, indent)
+	setclipboard(jsonString)
+	return jsonString
+end
+
+-- */  About Tab  /* --
+do
+	local AboutTab = Window:Tab({
+		Title = "About WindUI",
+		Desc = "Description Example",
+		Icon = "solar:info-square-bold",
+		IconColor = Grey,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	local AboutSection = AboutTab:Section({
+		Title = "About WindUI",
+	})
+
+	AboutSection:Image({
+		Image = "https://repository-images.githubusercontent.com/880118829/22c020eb-d1b1-4b34-ac4d-e33fd88db38d",
+		AspectRatio = "16:9",
+		Radius = 9,
+	})
+
+	AboutSection:Space({ Columns = 3 })
+
+	AboutSection:Section({
+		Title = "What is WindUI?",
+		TextSize = 24,
+		FontWeight = Enum.FontWeight.SemiBold,
+	})
+
+	AboutSection:Space()
+
+	AboutSection:Section({
+		Title = "WindUI is a stylish, open-source UI (User Interface) library specifically designed for Roblox Script Hubs.\nDeveloped by Footagesus (.ftgs, Footages).\nIt aims to provide developers with a modern, customizable, and easy-to-use toolkit for creating visually appealing interfaces within Roblox.\nThe project is primarily written in Lua (Luau), the scripting language used in Roblox.",
+		TextSize = 18,
+		TextTransparency = 0.35,
+		FontWeight = Enum.FontWeight.Medium,
+	})
+
+	AboutTab:Space({ Columns = 4 })
+
+	-- Default buttons
+
+	AboutTab:Button({
+		Title = "Export WindUI JSON (copy)",
+		Color = Color3.fromHex("#a2ff30"),
+		Justify = "Center",
+		IconAlign = "Left",
+		Icon = "", -- removing icon
+		Callback = function()
+			tableToClipboard(WindUI)
+			WindUI:Notify({
+				Title = "WindUI JSON",
+				Content = "Copied to Clipboard!",
+			})
+		end,
+	})
+	AboutTab:Space({ Columns = 1 })
+
+	AboutTab:Button({
+		Title = "Destroy Window",
+		Color = Color3.fromHex("#ff4830"),
+		Justify = "Center",
+		Icon = "shredder",
+		IconAlign = "Left",
+		Callback = function()
+			Window:Destroy()
+		end,
+	})
+end
+
+-- */  Elements Section  /* --
+local ElementsSection = Window:Section({
+	Title = "Elements",
+})
+local ConfigUsageSection = Window:Section({
+	Title = "Config Usage",
+})
+local OtherSection = Window:Section({
+	Title = "Other",
+})
+
+-- */  Overview Tab  /* --
+do
+	local OverviewTab = ElementsSection:Tab({
+		Title = "Overview",
+		Icon = "solar:home-2-bold",
+		IconColor = Grey,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	local OverviewSection1 = OverviewTab:Section({
+		Title = "Group's Example",
+	})
+
+	local OverviewGroup1 = OverviewTab:Group({})
+
+	OverviewGroup1:Button({
+		Title = "Button 1",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 1")
+		end,
+	})
+	OverviewGroup1:Space()
+	OverviewGroup1:Button({
+		Title = "Button 2",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 2")
+		end,
+	})
+
+	OverviewTab:Space()
+
+	local OverviewGroup2 = OverviewTab:Group({})
+
+	OverviewGroup2:Button({
+		Title = "Button 1",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 1")
+		end,
+	})
+	OverviewGroup2:Space()
+	OverviewGroup2:Toggle({
+		Title = "Toggle 2",
+		Callback = function(v)
+			print("clicked toggle 2:", v)
+		end,
+	})
+	OverviewGroup2:Space()
+	OverviewGroup2:Colorpicker({
+		Title = "Colorpicker 3",
+		Default = Color3.fromHex("#30ff6a"),
+		Callback = function(color)
+			print(color)
+		end,
+	})
+
+	OverviewTab:Space()
+
+	local OverviewGroup3 = OverviewTab:Group({})
+
+	local OverviewSection1 = OverviewGroup3:Section({
+		Title = "Section 1",
+		Desc = "Section exampleee",
+		Box = true,
+		BoxBorder = true,
+		Opened = true,
+	})
+	OverviewSection1:Button({
+		Title = "Button 1",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 1")
+		end,
+	})
+	OverviewSection1:Space()
+	OverviewSection1:Toggle({
+		Title = "Toggle 2",
+		Callback = function(v)
+			print("clicked toggle 2:", v)
+		end,
+	})
+
+	OverviewGroup3:Space()
+
+	local OverviewSection2 = OverviewGroup3:Section({
+		Title = "Section 2",
+		Box = true,
+		BoxBorder = true,
+		Opened = true,
+	})
+	OverviewSection2:Button({
+		Title = "Button 1",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 1")
+		end,
+	})
+	OverviewSection2:Space()
+	OverviewSection2:Button({
+		Title = "Button 2",
+		Justify = "Center",
+		Icon = "",
+		Callback = function()
+			print("clicked button 2")
+		end,
+	})
+
+	--OverviewTab:Space()
+end
+
+-- */  Toggle Tab  /* --
+do
+	local ToggleTab = ElementsSection:Tab({
+		Title = "Toggle",
+		Icon = "solar:check-square-bold",
+		IconColor = Green,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	ToggleTab:Toggle({
+		Title = "Toggle",
+	})
+
+	ToggleTab:Space()
+
+	ToggleTab:Toggle({
+		Title = "Toggle",
+		Desc = "Toggle example",
+	})
+
+	ToggleTab:Space()
+
+	local ToggleGroup1 = ToggleTab:Group()
+	ToggleGroup1:Toggle({})
+	ToggleGroup1:Space()
+	ToggleGroup1:Toggle({})
+
+	ToggleTab:Space()
+
+	ToggleTab:Toggle({
+		Title = "Checkbox",
+		Type = "Checkbox",
+	})
+
+	ToggleTab:Space()
+
+	ToggleTab:Toggle({
+		Title = "Checkbox",
+		Desc = "Checkbox example",
+		Type = "Checkbox",
+	})
+
+	ToggleTab:Space()
+
+	ToggleTab:Toggle({
+		Title = "Toggle",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+
+	ToggleTab:Toggle({
+		Title = "Toggle",
+		Desc = "Toggle example",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+end
+
+-- */  Button Tab  /* --
+do
+	local ButtonTab = ElementsSection:Tab({
+		Title = "Button",
+		Icon = "solar:cursor-square-bold",
+		IconColor = Blue,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	local HighlightButton
+	HighlightButton = ButtonTab:Button({
+		Title = "Highlight Button",
+		Icon = "mouse",
+		Callback = function()
+			print("clicked highlight")
+			HighlightButton:Highlight()
+		end,
+	})
+
+	ButtonTab:Space()
+
+	ButtonTab:Button({
+		Title = "Blue Button",
+		Color = Color3.fromHex("#305dff"),
+		Icon = "",
+		Callback = function() end,
+	})
+
+	ButtonTab:Space()
+
+	ButtonTab:Button({
+		Title = "Blue Button",
+		Desc = "With description",
+		Color = Color3.fromHex("#305dff"),
+		Icon = "",
+		Callback = function() end,
+	})
+
+	ButtonTab:Space()
+
+	ButtonTab:Button({
+		Title = "Notify Button",
+		--Desc = "Button example",
+		Callback = function()
+			WindUI:Notify({
+				Title = "Hello",
+				Content = "Welcome to the WindUI Example!",
+				Icon = "solar:bell-bold",
+				Duration = 5,
+				CanClose = false,
+			})
+		end,
+	})
+
+	ButtonTab:Button({
+		Title = "Notify Button 2",
+		--Desc = "Button example",
+		Callback = function()
+			WindUI:Notify({
+				Title = "Hello",
+				Content = "Welcome to the WindUI Example!",
+				--Icon = "solar:bell-bold",
+				Duration = 5,
+				CanClose = false,
+			})
+		end,
+	})
+
+	ButtonTab:Space()
+
+	ButtonTab:Button({
+		Title = "Button",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+
+	ButtonTab:Button({
+		Title = "Button",
+		Desc = "Button example",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+end
+
+-- */  Input Tab  /* --
+do
+	local InputTab = ElementsSection:Tab({
+		Title = "Input",
+		Icon = "solar:password-minimalistic-input-bold",
+		IconColor = Purple,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	InputTab:Input({
+		Title = "Input",
+		Icon = "mouse",
+	})
+
+	InputTab:Space()
+
+	InputTab:Input({
+		Title = "Input Textarea",
+		Type = "Textarea",
+		Icon = "mouse",
+	})
+
+	InputTab:Space()
+
+	InputTab:Input({
+		Title = "Input Textarea",
+		Type = "Textarea",
+		--Icon = "mouse",
+	})
+
+	InputTab:Space()
+
+	InputTab:Input({
+		Title = "Input",
+		Desc = "Input example",
+	})
+
+	InputTab:Space()
+
+	InputTab:Input({
+		Title = "Input Textarea",
+		Desc = "Input example",
+		Type = "Textarea",
+	})
+
+	InputTab:Space()
+
+	InputTab:Input({
+		Title = "Input",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+
+	InputTab:Input({
+		Title = "Input",
+		Desc = "Input example",
+		Locked = true,
+		LockedTitle = "This element is locked",
+	})
+end
+
+-- */  Slider Tab  /* --
+do
+	local SliderTab = ElementsSection:Tab({
+		Title = "Slider",
+		Icon = "solar:square-transfer-horizontal-bold",
+		IconColor = Green,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	SliderTab:Section({
+		Title = "Default Slider with Tooltip and without textbox",
+		TextSize = 14,
+	})
+
+	SliderTab:Slider({
+		Title = "Slider Example",
+		Desc = "Hahahahaha hello",
+		IsTooltip = true,
+		IsTextbox = false,
+		Width = 200,
+		Step = 1,
+		Value = {
+			Min = 0,
+			Max = 200,
+			Default = 100,
+		},
+		Callback = function(value)
+			print(value)
+		end,
+	})
+
+	SliderTab:Space()
+
+	SliderTab:Section({
+		Title = "Slider without description",
+		TextSize = 14,
+	})
+
+	SliderTab:Slider({
+		Title = "Slider Example",
+		Step = 1,
+		Width = 200,
+		Value = {
+			Min = 0,
+			Max = 200,
+			Default = 100,
+		},
+		Callback = function(value)
+			print(value)
+		end,
+	})
+
+	SliderTab:Space()
+
+	SliderTab:Section({
+		Title = "Slider without titles",
+		TextSize = 14,
+	})
+
+	SliderTab:Slider({
+		IsTooltip = true,
+		Step = 1,
+		Value = {
+			Min = 0,
+			Max = 200,
+			Default = 100,
+		},
+		Callback = function(value)
+			print(value)
+		end,
+	})
+
+	SliderTab:Space()
+
+	SliderTab:Section({
+		Title = "Slider with icons ('from' only)",
+		TextSize = 14,
+	})
+
+	SliderTab:Slider({
+		IsTooltip = true,
+		Step = 1,
+		Value = {
+			Min = 0,
+			Max = 200,
+			Default = 100,
+		},
+		Icons = {
+			From = "sfsymbols:sunMinFill",
+			--To = "sfsymbols:sunMaxFill",
+		},
+		Callback = function(value)
+			print(value)
+		end,
+	})
+
+	SliderTab:Space()
+
+	SliderTab:Section({
+		Title = "Slider with icons (from & to)",
+		TextSize = 14,
+	})
+
+	SliderTab:Slider({
+		IsTooltip = true,
+		Step = 1,
+		Value = {
+			Min = 0,
+			Max = 100,
+			Default = 50,
+		},
+		Icons = {
+			From = "sfsymbols:sunMinFill",
+			To = "sfsymbols:sunMaxFill",
+		},
+		Callback = function(value)
+			print(value)
+		end,
+	})
+end
+
+-- */  Dropdown Tab  /* --
+do
+	local DropdownTab = ElementsSection:Tab({
+		Title = "Dropdown",
+		Icon = "solar:hamburger-menu-bold",
+		IconColor = Yellow,
+		IconShape = "Square",
+		Border = true,
+	})
+
+	DropdownTab:Dropdown({
+		Title = "Advanced Dropdown (example)",
+		Values = {
+			{
+				Title = "New file",
+				Desc = "Create a new file",
+				Icon = "file-plus",
+				Callback = function()
+					print("Clicked 'New File'")
+				end,
+			},
+			{
+				Title = "Copy link",
+				Desc = "Copy the file link",
+				Icon = "copy",
+				Callback = function()
+					print("Clicked 'Copy link'")
+				end,
+			},
+			{
+				Title = "Edit file",
+				Desc = "Allows you to edit the file",
+				Icon = "file-pen",
+				Callback = function()
+					print("Clicked 'Edit file'")
+				end,
+			},
+			{
+				Type = "Divider",
+			},
+			{
+				Title = "Delete file",
+				Desc = "Permanently delete the file",
+				Icon = "trash",
+				Callback = function()
+					print("Clicked 'Delete file'")
+				end,
+			},
+		},
+	})
+
+	DropdownTab:Space()
+
+	DropdownTab:Dropdown({
+		Title = "Multi Dropdown",
+		Values = {
+			"Привет",
+			"Hello",
+			"Сәлем",
+			"Bonjour",
+		},
+		Value = nil,
+		AllowNone = true,
+		Multi = true,
+		Callback = function(selectedValue)
+			print("Selected: " .. selectedValue)
+		end,
+	})
+
+	DropdownTab:Space()
+
+	DropdownTab:Dropdown({
+		Title = "No Multi Dropdown (default",
+		Values = {
+			"Привет",
+			"Hello",
+			"Сәлем",
+			"Bonjour",
+		},
+		Value = 1,
+		--AllowNone = true,
+		Callback = function(selectedValue)
+			print("Selected: " .. selectedValue)
+		end,
+	})
+
+	DropdownTab:Space()
+end
+
+-- */  Config Usage  /* --
+if not RunService:IsStudio() and writefile and printidentity() then
+	do -- config elements
+		local ConfigElementsTab = ConfigUsageSection:Tab({
+			Title = "Config Elements",
+			Icon = "solar:file-text-bold",
+			IconColor = Blue,
+			IconShape = nil,
+			Border = true,
+		})
+
+		-- All elements are taken from the official documentation: https://footagesus.github.io/WindUI-Docs/docs
+
+		-- Saving elements to the config using `Flag`
+
+		ConfigElementsTab:Colorpicker({
+			Flag = "ColorpickerTest",
+			Title = "Colorpicker",
+			Desc = "Colorpicker Description",
+			Default = Color3.fromRGB(0, 255, 0),
+			Transparency = 0,
+			Locked = false,
+			Callback = function(color)
+				print("Background color: " .. tostring(color))
+			end,
+		})
+
+		ConfigElementsTab:Space()
+
+		ConfigElementsTab:Dropdown({
+			Flag = "DropdownTest",
+			Title = "Advanced Dropdown",
+			Values = {
+				{
+					Title = "Category A",
+					Icon = "bird",
+				},
+				{
+					Title = "Category B",
+					Icon = "house",
+				},
+				{
+					Title = "Category C",
+					Icon = "droplet",
+				},
+			},
+			Value = "Category A",
+			Callback = function(option)
+				print("Category selected: " .. option.Title .. " with icon " .. option.Icon)
+			end,
+		})
+		ConfigElementsTab:Dropdown({
+			Flag = "DropdownTest2",
+			Title = "Advanced Dropdown 2",
+			Values = {
+				{
+					Title = "Category A",
+					Icon = "bird",
+				},
+				{
+					Title = "Category B",
+					Icon = "house",
+				},
+				{
+					Title = "Category C",
+					Icon = "droplet",
+					Locked = true,
+				},
+			},
+			Value = "Category A",
+			Multi = true,
+			Callback = function(options)
+				local titles = {}
+				for _, v in ipairs(options) do
+					table.insert(titles, v.Title)
+				end
+				print("Selected: " .. table.concat(titles, ", "))
+			end,
+		})
+
+		ConfigElementsTab:Space()
+
+		ConfigElementsTab:Input({
+			Flag = "InputTest",
+			Title = "Input",
+			Desc = "Input Description",
+			Value = "Default value",
+			InputIcon = "bird",
+			Type = "Input", -- or "Textarea"
+			Placeholder = "Enter text...",
+			Callback = function(input)
+				print("Text entered: " .. input)
+			end,
+		})
+
+		ConfigElementsTab:Space()
+
+		ConfigElementsTab:Keybind({
+			Flag = "KeybindTest",
+			Title = "Keybind",
+			Desc = "Keybind to open ui",
+			Value = "G",
+			Callback = function(v)
+				Window:SetToggleKey(Enum.KeyCode[v])
+			end,
+		})
+
+		ConfigElementsTab:Space()
+
+		ConfigElementsTab:Slider({
+			Flag = "SliderTest",
+			Title = "Slider",
+			Step = 1,
+			Value = {
+				Min = 20,
+				Max = 120,
+				Default = 70,
+			},
+			Callback = function(value)
+				print(value)
+			end,
+		})
+		ConfigElementsTab:Slider({
+			Flag = "SliderTest2",
+			--Title = "Slider",
+			Icons = {
+				From = "sfsymbols:sunMinFill",
+				To = "sfsymbols:sunMaxFill",
+			},
+			Step = 1,
+			IsTooltip = true,
+			Value = {
+				Min = 0,
+				Max = 100,
+				Default = 50,
+			},
+			Callback = function(value)
+				print(value)
+			end,
+		})
+
+		ConfigElementsTab:Space()
+
+		ConfigElementsTab:Toggle({
+			Flag = "ToggleTest",
+			Title = "Toggle Panel Background",
+			--Desc = "Toggle Description",
+			--Icon = "house",
+			--Type = "Checkbox",
+			Value = not Window.HidePanelBackground,
+			Callback = function(state)
+				Window:SetPanelBackground(state)
+			end,
+		})
+
+		ConfigElementsTab:Toggle({
+			Flag = "ToggleTest",
+			Title = "Toggle",
+			Desc = "Toggle Description",
+			--Icon = "house",
+			--Type = "Checkbox",
+			Value = false,
+			Callback = function(state)
+				print("Toggle Activated" .. tostring(state))
+			end,
+		})
+	end
+
+	do -- config panel
+		local ConfigTab = ConfigUsageSection:Tab({
+			Title = "Config Usage",
+			Icon = "solar:folder-with-files-bold",
+			IconColor = Purple,
+			IconShape = nil,
+			Border = true,
+		})
+
+		local ConfigManager = Window.ConfigManager
+		local ConfigName = "default"
+
+		local ConfigNameInput = ConfigTab:Input({
+			Title = "Config Name",
+			Icon = "file-cog",
+			Callback = function(value)
+				ConfigName = value
+			end,
+		})
+
+		ConfigTab:Space()
+
+		-- local AutoLoadToggle = ConfigTab:Toggle({
+		--     Title = "Enable Auto Load to Selected Config",
+		--     Value = false,
+		--     Callback = function(v)
+		--         Window.CurrentConfig:SetAutoLoad(v)
+		--     end
+		-- })
+
+		-- ConfigTab:Space()
+
+		local AllConfigs = ConfigManager:AllConfigs()
+		local DefaultValue = table.find(AllConfigs, ConfigName) and ConfigName or nil
+
+		local AllConfigsDropdown = ConfigTab:Dropdown({
+			Title = "All Configs",
+			Desc = "Select existing configs",
+			Values = AllConfigs,
+			Value = DefaultValue,
+			Callback = function(value)
+				ConfigName = value
+				ConfigNameInput:Set(value)
+
+				--AutoLoadToggle:Set(ConfigManager:GetConfig(ConfigName).AutoLoad or false)
+			end,
+		})
+
+		ConfigTab:Space()
+
+		ConfigTab:Button({
+			Title = "Save Config",
+			Icon = "",
+			Justify = "Center",
+			Callback = function()
+				Window.CurrentConfig = ConfigManager:Config(ConfigName)
+				if Window.CurrentConfig:Save() then
+					WindUI:Notify({
+						Title = "Config Saved",
+						Desc = "Config '" .. ConfigName .. "' saved",
+						Icon = "check",
+					})
+				end
+
+				AllConfigsDropdown:Refresh(ConfigManager:AllConfigs())
+			end,
+		})
+
+		ConfigTab:Space()
+
+		ConfigTab:Button({
+			Title = "Load Config",
+			Icon = "",
+			Justify = "Center",
+			Callback = function()
+				Window.CurrentConfig = ConfigManager:CreateConfig(ConfigName)
+				if Window.CurrentConfig:Load() then
+					WindUI:Notify({
+						Title = "Config Loaded",
+						Desc = "Config '" .. ConfigName .. "' loaded",
+						Icon = "refresh-cw",
+					})
+				end
+			end,
+		})
+
+		ConfigTab:Space()
+
+		ConfigTab:Button({
+			Title = "Print AutoLoad Configs",
+			Icon = "",
+			Justify = "Center",
+			Callback = function()
+				print(HttpService:JSONDecode(ConfigManager:GetAutoLoadConfigs()))
+			end,
+		})
+	end
+end
+
+-- */  Other  /* --
+do
+	local InviteCode = "ftgs-development-hub-1300692552005189632"
+	local DiscordAPI = "https://discord.com/api/v10/invites/" .. InviteCode .. "?with_counts=true&with_expiration=true"
+
+	local Response = WindUI.cloneref(game:GetService("HttpService"))
+		:JSONDecode(WindUI.Creator.Request and WindUI.Creator.Request({
+			Url = DiscordAPI,
+			Method = "GET",
+			Headers = {
+				["User-Agent"] = "WindUI/Example",
+				["Accept"] = "application/json",
+			},
+		}).Body or "{}")
+
+	local DiscordTab = OtherSection:Tab({
+		Title = "Discord",
+		Border = true,
+	})
+
+	if Response and Response.guild then
+		DiscordTab:Section({
+			Title = "Join our Discord server!",
+			TextSize = 20,
+		})
+		local DiscordServerParagraph = DiscordTab:Paragraph({
+			Title = tostring(Response.guild.name),
+			Desc = tostring(Response.guild.description),
+			Image = "https://cdn.discordapp.com/icons/"
+				.. Response.guild.id
+				.. "/"
+				.. Response.guild.icon
+				.. ".png?size=1024",
+			Thumbnail = "https://cdn.discordapp.com/banners/1300692552005189632/35981388401406a4b7dffd6f447a64c4.png?size=512",
+			ImageSize = 48,
+			Buttons = {
+				{
+					Title = "Copy link",
+					Icon = "link",
+					Callback = function()
+						setclipboard("https://discord.gg/" .. InviteCode)
+					end,
+				},
+			},
+		})
+	elseif RunService:IsStudio() or not writefile then
+		DiscordTab:Paragraph({
+			Title = "Discord API is not available in Studio mode.",
+			TextSize = 20,
+			Justify = "Center",
+			Image = "solar:info-circle-bold",
+			Color = "Red",
+			Buttons = {
+				{
+					Title = "Get/Copy Invite Link",
+					Icon = "link",
+					Callback = function()
+						if setclipboard then
+							setclipboard("https://discord.gg/" .. InviteCode)
+						else
+							WindUI:Notify({
+								Title = "Discord Invite Link",
+								Content = "https://discord.gg/" .. InviteCode,
+							})
+						end
+					end,
+				},
+			},
+		})
+	else
+		DiscordTab:Paragraph({
+			Title = "Failed to fetch Discord server info.",
+			TextSize = 20,
+			Justify = "Center",
+			Image = "solar:info-circle-bold",
+			Color = "Red",
+		})
+	end
+end
+
+local Tabs = {
+	ExampleTab = Window:Tab({
+		Title = "Example Tab",
+		Icon = "bird",
+	}),
 }
 
--- utility
-local function makeCorner(parent, radius)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius or 8)
-	corner.Parent = parent
-	return corner
-end
+local dropdownA
 
-local function makeStroke(parent, color, thickness)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color or Color3.fromRGB(30, 30, 30)
-	stroke.Thickness = thickness or 1
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = parent
-	return stroke
-end
+local LargeListA = {
+	"All",
+	"Item A2",
+	"Item A3",
+	"Item A4",
+	"Item A5",
+	"Item A6",
+	"Item A7",
+	"Item A8",
+	"Item A9",
+	"Item A10",
+	"Item A11",
+	"Item A12",
+	"Item A13",
+	"Item A14",
+	"Item A15",
+	"Item A16",
+	"Item A17",
+	"Item A18",
+	"Item A19",
+	"Item A20",
+	"Item A21",
+	"Item A22",
+	"Item A23",
+	"Item A24",
+	"Item A25",
+	"Item A26",
+	"Item A27",
+	"Item A28",
+	"Item A29",
+	"Item A30",
+	"Item A31",
+	"Item A32",
+	"Item A33",
+	"Item A34",
+	"Item A35",
+	"Item A36",
+	"Item A37",
+	"Item A38",
+	"Item A39",
+	"Item A40",
+	"Item A41",
+	"Item A42",
+	"Item A43",
+	"Item A44",
+	"Item A45",
+	"Item A46",
+	"Item A47",
+	"Item A48",
+	"Item A49",
+	"Item A50",
+	"Item A51",
+	"Item A52",
+	"Item A53",
+	"Item A54",
+	"Item A55",
+	"Item A56",
+	"Item A57",
+	"Item A58",
+	"Item A59",
+	"Item A60",
+	"Item A61",
+	"Item A62",
+	"Item A63",
+	"Item A64",
+	"Item A65",
+	"Item A66",
+	"Item A67",
+	"Item A68",
+	"Item A69",
+	"Item A70",
+	"Item A71",
+	"Item A72",
+	"Item A73",
+	"Item A74",
+	"Item A75",
+	"Item A76",
+	"Item A77",
+	"Item A78",
+	"Item A79",
+	"Item A80",
+	"Item A81",
+	"Item A82",
+	"Item A83",
+	"Item A84",
+	"Item A85",
+	"Item A86",
+	"Item A87",
+	"Item A88",
+	"Item A89",
+	"Item A90",
+	"Item A91",
+	"Item A92",
+	"Item A93",
+	"Item A94",
+	"Item A95",
+	"Item A96",
+	"Item A97",
+	"Item A98",
+	"Item A99",
+	"Item A100",
+}
 
--- splash screen
-local Splash = Instance.new("ScreenGui")
-Splash.Name = "ezSplash"
-Splash.ResetOnSpawn = false
-Splash.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Splash.Parent = CoreGui
+local LargeListB = {
+	"Data B1",
+	"Data B2",
+	"Data B3",
+	"Data B4",
+	"Data B5",
+	"Data B6",
+	"Data B7",
+	"Data B8",
+	"Data B9",
+	"Data B10",
+}
 
-local SplashBg = Instance.new("Frame")
-SplashBg.Size = UDim2.new(1, 0, 1, 0)
-SplashBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-SplashBg.BorderSizePixel = 0
-SplashBg.Parent = Splash
+Tabs.ExampleTab:Dropdown({
+	Title = "Main Category",
+	Values = { "All", "Other Option" },
+	Value = "All",
+	Callback = function(option)
+		if dropdownA then
+			task.spawn(function()
+				if option == "All" then
+					dropdownA:Refresh(LargeListA)
+				else
+					dropdownA:Refresh(LargeListB)
+				end
 
-local SplashText = Instance.new("TextLabel")
-SplashText.Size = UDim2.new(0, 200, 0, 80)
-SplashText.Position = UDim2.new(0.5, -100, 0.5, -40)
-SplashText.BackgroundTransparency = 1
-SplashText.Text = "ez."
-SplashText.TextColor3 = Color3.fromRGB(255, 255, 255)
-SplashText.TextSize = 64
-SplashText.Font = Enum.Font.GothamBold
-SplashText.Parent = SplashBg
-
-task.wait(1.5)
-
-SplashBg.BackgroundTransparency = 0
-for i = 0, 1, 0.05 do
-	SplashBg.BackgroundTransparency = i
-	task.wait(0.02)
-end
-
-Splash:Destroy()
-
--- main gui
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ezGUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = CoreGui
-
--- toggle button (orb)
-local ToggleOrb = Instance.new("TextButton")
-ToggleOrb.Name = "ToggleOrb"
-ToggleOrb.Size = UDim2.new(0, 50, 0, 50)
-ToggleOrb.Position = UDim2.new(0, 20, 0, 20)
-ToggleOrb.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-ToggleOrb.BorderSizePixel = 0
-ToggleOrb.Text = ""
-ToggleOrb.AutoButtonColor = false
-ToggleOrb.Parent = ScreenGui
-
-makeCorner(ToggleOrb, 25)
-makeStroke(ToggleOrb, Color3.fromRGB(40, 40, 40), 2)
-
-local OrbLabel = Instance.new("TextLabel")
-OrbLabel.Size = UDim2.new(1, 0, 1, 0)
-OrbLabel.BackgroundTransparency = 1
-OrbLabel.Text = "ez"
-OrbLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-OrbLabel.TextSize = 16
-OrbLabel.Font = Enum.Font.GothamBold
-OrbLabel.Parent = ToggleOrb
-
--- main frame
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.new(0, 700, 0, 500)
-Main.Position = UDim2.new(0.5, -350, 0.5, -250)
-Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Main.BorderSizePixel = 0
-Main.ClipsDescendants = true
-Main.Visible = true
-Main.Parent = ScreenGui
-
-makeCorner(Main, 0)
-makeStroke(Main, Color3.fromRGB(25, 25, 25), 1)
-
--- sidebar
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 180, 1, 0)
-Sidebar.Position = UDim2.new(0, 0, 0, 0)
-Sidebar.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = Main
-
-local SidebarSep = Instance.new("Frame")
-SidebarSep.Size = UDim2.new(0, 1, 1, 0)
-SidebarSep.Position = UDim2.new(1, 0, 0, 0)
-SidebarSep.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-SidebarSep.BorderSizePixel = 0
-SidebarSep.Parent = Sidebar
-
--- logo
-local Logo = Instance.new("TextLabel")
-Logo.Name = "Logo"
-Logo.Size = UDim2.new(1, 0, 0, 60)
-Logo.Position = UDim2.new(0, 0, 0, 0)
-Logo.BackgroundTransparency = 1
-Logo.Text = "ez."
-Logo.TextColor3 = Color3.fromRGB(255, 255, 255)
-Logo.TextSize = 28
-Logo.Font = Enum.Font.GothamBold
-Logo.Parent = Sidebar
-
--- tab container
-local TabContainer = Instance.new("Frame")
-TabContainer.Name = "TabContainer"
-TabContainer.Size = UDim2.new(1, 0, 1, -80)
-TabContainer.Position = UDim2.new(0, 0, 0, 70)
-TabContainer.BackgroundTransparency = 1
-TabContainer.Parent = Sidebar
-
-local TabLayout = Instance.new("UIListLayout")
-TabLayout.Padding = UDim.new(0, 4)
-TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabLayout.Parent = TabContainer
-
--- content container
-local ContentContainer = Instance.new("Frame")
-ContentContainer.Name = "ContentContainer"
-ContentContainer.Size = UDim2.new(1, -180, 1, 0)
-ContentContainer.Position = UDim2.new(0, 180, 0, 0)
-ContentContainer.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-ContentContainer.BorderSizePixel = 0
-ContentContainer.ClipsDescendants = true
-ContentContainer.Parent = Main
-
-local ContentScroll = Instance.new("ScrollingFrame")
-ContentScroll.Name = "Scroll"
-ContentScroll.Size = UDim2.new(1, -20, 1, -20)
-ContentScroll.Position = UDim2.new(0, 10, 0, 10)
-ContentScroll.BackgroundTransparency = 1
-ContentScroll.BorderSizePixel = 0
-ContentScroll.ScrollBarThickness = 3
-ContentScroll.ScrollBarImageColor3 = Color3.fromRGB(40, 40, 40)
-ContentScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-ContentScroll.Parent = ContentContainer
-
-local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.Padding = UDim.new(0, 10)
-ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ContentLayout.Parent = ContentScroll
-
-ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	ContentScroll.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 20)
-end)
-
--- tab system
-local tabs = {}
-local currentTab = nil
-
-local function createTab(name)
-	local tabButton = Instance.new("TextButton")
-	tabButton.Name = name
-	tabButton.Size = UDim2.new(1, -20, 0, 35)
-	tabButton.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-	tabButton.BorderSizePixel = 0
-	tabButton.Text = name
-	tabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
-	tabButton.TextSize = 14
-	tabButton.Font = Enum.Font.GothamMedium
-	tabButton.AutoButtonColor = false
-	tabButton.Parent = TabContainer
-	
-	makeCorner(tabButton, 4)
-	
-	local tabContent = Instance.new("Folder")
-	tabContent.Name = name .. "Content"
-	tabContent.Parent = ContentScroll
-	
-	local function selectTab()
-		for _, t in pairs(tabs) do
-			t.button.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-			t.button.TextColor3 = Color3.fromRGB(150, 150, 150)
-			for _, item in pairs(t.content:GetChildren()) do
-				item.Visible = false
-			end
+				dropdownA:Select({ "All" })
+			end)
 		end
-		
-		tabButton.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-		tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-		
-		for _, item in pairs(tabContent:GetChildren()) do
-			item.Visible = true
-		end
-		
-		currentTab = name
-	end
-	
-	tabButton.MouseButton1Click:Connect(selectTab)
-	
-	tabs[name] = {
-		button = tabButton,
-		content = tabContent,
-		select = selectTab
-	}
-	
-	return tabs[name]
-end
+	end,
+})
 
--- element creators
-local function createSection(tab, title)
-	local section = Instance.new("Frame")
-	section.Name = "Section_" .. title
-	section.Size = UDim2.new(1, 0, 0, 25)
-	section.BackgroundTransparency = 1
-	section.Visible = false
-	section.Parent = tab.content
-	
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 1, 0)
-	label.BackgroundTransparency = 1
-	label.Text = title:upper()
-	label.TextColor3 = Color3.fromRGB(80, 80, 80)
-	label.TextSize = 11
-	label.Font = Enum.Font.GothamBold
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = section
-	
-	return section
-end
-
-local function createToggle(tab, title, default, callback)
-	local toggle = Instance.new("Frame")
-	toggle.Name = "Toggle_" .. title
-	toggle.Size = UDim2.new(1, 0, 0, 35)
-	toggle.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	toggle.BorderSizePixel = 0
-	toggle.Visible = false
-	toggle.Parent = tab.content
-	
-	makeCorner(toggle, 4)
-	
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -50, 1, 0)
-	label.Position = UDim2.new(0, 12, 0, 0)
-	label.BackgroundTransparency = 1
-	label.Text = title
-	label.TextColor3 = Color3.fromRGB(200, 200, 200)
-	label.TextSize = 13
-	label.Font = Enum.Font.Gotham
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = toggle
-	
-	local checkbox = Instance.new("Frame")
-	checkbox.Name = "Checkbox"
-	checkbox.Size = UDim2.new(0, 18, 0, 18)
-	checkbox.Position = UDim2.new(1, -30, 0.5, -9)
-	checkbox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	checkbox.BorderSizePixel = 0
-	checkbox.Parent = toggle
-	
-	makeCorner(checkbox, 3)
-	makeStroke(checkbox, Color3.fromRGB(40, 40, 40), 1)
-	
-	local checkmark = Instance.new("TextLabel")
-	checkmark.Size = UDim2.new(1, 0, 1, 0)
-	checkmark.BackgroundTransparency = 1
-	checkmark.Text = "✓"
-	checkmark.TextColor3 = Color3.fromRGB(255, 255, 255)
-	checkmark.TextSize = 14
-	checkmark.Font = Enum.Font.GothamBold
-	checkmark.Visible = false
-	checkmark.Parent = checkbox
-	
-	local state = default or false
-	
-	local function updateToggle()
-		if state then
-			checkbox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-			checkmark.Visible = true
-		else
-			checkbox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-			checkmark.Visible = false
-		end
-		if callback then callback(state) end
-	end
-	
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 1, 0)
-	btn.BackgroundTransparency = 1
-	btn.Text = ""
-	btn.Parent = toggle
-	
-	btn.MouseButton1Click:Connect(function()
-		state = not state
-		updateToggle()
-	end)
-	
-	updateToggle()
-	
-	return toggle
-end
-
-local function createSlider(tab, title, min, max, default, increment, callback)
-	local slider = Instance.new("Frame")
-	slider.Name = "Slider_" .. title
-	slider.Size = UDim2.new(1, 0, 0, 45)
-	slider.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-	slider.BorderSizePixel = 0
-	slider.Visible = false
-	slider.Parent = tab.content
-	
-	makeCorner(slider, 4)
-	
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(0.6, 0, 0, 18)
-	label.Position = UDim2.new(0, 12, 0, 6)
-	label.BackgroundTransparency = 1
-	label.Text = title
-	label.TextColor3 = Color3.fromRGB(200, 200, 200)
-	label.TextSize = 13
-	label.Font = Enum.Font.Gotham
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = slider
-	
-	local valueLabel = Instance.new("TextLabel")
-	valueLabel.Size = UDim2.new(0, 50, 0, 18)
-	valueLabel.Position = UDim2.new(1, -62, 0, 6)
-	valueLabel.BackgroundTransparency = 1
-	valueLabel.Text = tostring(default)
-	valueLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-	valueLabel.TextSize = 12
-	valueLabel.Font = Enum.Font.Gotham
-	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-	valueLabel.Parent = slider
-	
-	local sliderBg = Instance.new("Frame")
-	sliderBg.Size = UDim2.new(1, -24, 0, 3)
-	sliderBg.Position = UDim2.new(0, 12, 1, -12)
-	sliderBg.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-	sliderBg.BorderSizePixel = 0
-	sliderBg.Parent = slider
-	
-	makeCorner(sliderBg, 2)
-	
-	local sliderFill = Instance.new("Frame")
-	sliderFill.Name = "Fill"
-	sliderFill.Size = UDim2.new(0, 0, 1, 0)
-	sliderFill.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-	sliderFill.BorderSizePixel = 0
-	sliderFill.Parent = sliderBg
-	
-	makeCorner(sliderFill, 2)
-	
-	local sliderBtn = Instance.new("TextButton")
-	sliderBtn.Size = UDim2.new(1, 0, 1, 0)
-	sliderBtn.BackgroundTransparency = 1
-	sliderBtn.Text = ""
-	sliderBtn.Parent = sliderBg
-	
-	local dragging = false
-	local value = default
-	
-	local function updateSlider(input)
-		local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
-		value = math.floor((min + (max - min) * pos) / increment + 0.5) * increment
-		value = math.clamp(value, min, max)
-		
-		local fillSize = (value - min) / (max - min)
-		sliderFill.Size = UDim2.new(fillSize, 0, 1, 0)
-		valueLabel.Text = tostring(value)
-		
-		if callback then callback(value) end
-	end
-	
-	sliderBtn.MouseButton1Down:Connect(function()
-		dragging = true
-	end)
-	
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-		end
-	end)
-	
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			updateSlider(input)
-		end
-	end)
-	
-	sliderBtn.MouseButton1Click:Connect(function()
-		local mousePos = UserInputService:GetMouseLocation()
-		updateSlider({Position = Vector3.new(mousePos.X, mousePos.Y, 0)})
-	end)
-	
-	local fillSize = (value - min) / (max - min)
-	sliderFill.Size = UDim2.new(fillSize, 0, 1, 0)
-	
-	return slider
-end
-
-local function createButton(tab, title, callback)
-	local button = Instance.new("TextButton")
-	button.Name = "Button_" .. title
-	button.Size = UDim2.new(1, 0, 0, 35)
-	button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	button.BorderSizePixel = 0
-	button.Text = title
-	button.TextColor3 = Color3.fromRGB(200, 200, 200)
-	button.TextSize = 13
-	button.Font = Enum.Font.GothamMedium
-	button.AutoButtonColor = false
-	button.Visible = false
-	button.Parent = tab.content
-	
-	makeCorner(button, 4)
-	makeStroke(button, Color3.fromRGB(40, 40, 40), 1)
-	
-	button.MouseButton1Click:Connect(function()
-		if callback then callback() end
-	end)
-	
-	return button
-end
-
--- create tabs
-local combatTab = createTab("Combat")
-local playerTab = createTab("Player")
-local clientTab = createTab("Client")
-local ezTab = createTab("ez.")
-local miscTab = createTab("Misc")
-
--- combat tab
-createSection(combatTab, "aim")
-createToggle(combatTab, "aimbot", false, function(v) _G.ez.aimbot = v print("aimbot:", v) end)
-createSlider(combatTab, "fov", 20, 500, 100, 10, function(v) _G.ez.aimFov = v end)
-createSlider(combatTab, "smoothing", 0, 1, 0.2, 0.05, function(v) _G.ez.aimSmooth = v end)
-
-createSection(combatTab, "trigger")
-createToggle(combatTab, "triggerbot", false, function(v) print("trigger:", v) end)
-createSlider(combatTab, "delay (ms)", 0, 500, 50, 10, function(v) print("delay:", v) end)
-
--- player tab
-createSection(playerTab, "movement")
-createToggle(playerTab, "speed hack", false, function(v) _G.ez.speed = v end)
-createSlider(playerTab, "walk speed", 16, 200, 16, 2, function(v) _G.ez.walkSpeed = v end)
-createSlider(playerTab, "jump power", 50, 300, 50, 5, function(v) _G.ez.jumpPower = v end)
-
-createSection(playerTab, "abilities")
-createToggle(playerTab, "fly", false, function(v) _G.ez.fly = v end)
-createToggle(playerTab, "noclip", false, function(v) _G.ez.noclip = v end)
-createToggle(playerTab, "infinite jump", false, function(v) print("inf jump:", v) end)
-
--- client tab
-createSection(clientTab, "esp")
-createToggle(clientTab, "box esp", false, function(v) _G.ez.boxESP = v end)
-createToggle(clientTab, "name esp", false, function(v) _G.ez.nameESP = v end)
-createToggle(clientTab, "distance esp", false, function(v) print("distance esp:", v) end)
-createToggle(clientTab, "health esp", false, function(v) print("health esp:", v) end)
-
-createSection(clientTab, "world")
-createToggle(clientTab, "fov circle", false, function(v) print("fov circle:", v) end)
-createToggle(clientTab, "fullbright", false, function(v)
-	if v then
-		game.Lighting.Brightness = 2
-		game.Lighting.ClockTime = 14
-		game.Lighting.FogEnd = 100000
-	else
-		game.Lighting.Brightness = 1
-		game.Lighting.ClockTime = 12
-	end
-end)
-
--- ez. tab
-createSection(ezTab, "info")
-createButton(ezTab, "respawn", function()
-	if player.Character and player.Character:FindFirstChild("Humanoid") then
-		player.Character.Humanoid.Health = 0
-	end
-end)
-
-createButton(ezTab, "destroy gui", function()
-	ScreenGui:Destroy()
-end)
-
--- misc tab
-createSection(miscTab, "automation")
-createToggle(miscTab, "auto farm", false, function(v) print("auto farm:", v) end)
-createToggle(miscTab, "auto collect", false, function(v) print("auto collect:", v) end)
-
--- toggle visibility
-local guiVisible = true
-ToggleOrb.MouseButton1Click:Connect(function()
-	guiVisible = not guiVisible
-	Main.Visible = guiVisible
-end)
-
--- dragging
-local dragging = false
-local dragInput, startPos, startMousePos
-
-Sidebar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		startPos = Main.Position
-		startMousePos = input.Position
-		
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - startMousePos
-		Main.Position = UDim2.new(
-			startPos.X.Scale, startPos.X.Offset + delta.X,
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y
-		)
-	end
-end)
-
--- auto-select first tab
-task.wait(0.1)
-combatTab.select()
-
-print("ez. loaded")
+dropdownA = Tabs.ExampleTab:Dropdown({
+	Title = "Target",
+	Values = LargeListA,
+	Multi = true,
+	Value = { "All" },
+	Callback = function(option) end,
+})
