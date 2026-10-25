@@ -678,6 +678,7 @@ local GuiService = game:GetService("GuiService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -5593,22 +5594,37 @@ flingToggle = MiscTab:CreateToggle({
                 Window:Notify({ Title = "Fling falhou", Content = "Personagem não encontrado.", Icon = "x", Type = "Error", Duration = 3 })
                 return
             end
+
+            local function flingTarget(character)
+                local targetHrp = character:FindFirstChild("HumanoidRootPart")
+                local targetHum = character:FindFirstChildOfClass("Humanoid")
+                if not targetHrp or not targetHum then return end
+                local spin = Instance.new("BodyAngularVelocity")
+                spin.AngularVelocity = Vector3.new(0, 20000, 0)
+                spin.MaxTorque = Vector3.new(50000, 50000, 50000)
+                spin.P = 1250
+                spin.Parent = targetHrp
+                local force = Instance.new("BodyForce")
+                force.Force = Vector3.new(0, workspace.Gravity * targetHrp:GetMass() * 1.5, 0)
+                force.Parent = targetHrp
+                task.delay(0.35, function()
+                    if spin and spin.Parent then spin:Destroy() end
+                    if force and force.Parent then force:Destroy() end
+                end)
+            end
+
             local touched = {}
             FlingConn = hrp.Touched:Connect(function(hit)
                 if not FlingActive then return end
                 local other = hit and hit.Parent
                 if not other then return end
-                local otherHum = other:FindFirstChildOfClass("Humanoid")
-                local otherHrp = other:FindFirstChild("HumanoidRootPart")
-                if not otherHum or not otherHrp then return end
                 if other == char then return end
+                local otherHum = other:FindFirstChildOfClass("Humanoid")
+                if not otherHum or otherHum.Health <= 0 then return end
                 if touched[other] then return end
                 touched[other] = true
                 task.delay(1, function() touched[other] = nil end)
-                pcall(function()
-                    otherHrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0)
-                    otherHrp.Velocity = Vector3.new(1e5, 1e5, 1e5)
-                end)
+                pcall(flingTarget, other)
             end)
             Window:Notify({ Title = "Fling ligado", Content = "Quem te tocar vai voar.", Icon = "wind", Type = "Success", Duration = 3 })
         else
@@ -5676,41 +5692,55 @@ MiscTab:CreateButton({
 
 MiscTab:CreateSection("Server")
 
+local function requestServerList()
+    local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(game.PlaceId)
+    local req = request or http_request or (syn and syn.request) or (http and http.request)
+    if type(req) == "function" then
+        local res = req({ Url = url, Method = "GET" })
+        local body = type(res) == "table" and (res.Body or res.body) or nil
+        if body then return HttpService:JSONDecode(body) end
+    end
+    return HttpService:JSONDecode(game:HttpGet(url))
+end
+
 MiscTab:CreateButton({
-    Name = "Hop Server",
-    Desc = "Troca para outro servidor",
-    Icon = "shuffle",
+    Name = "Join Low Player",
+    Desc = "Entra no servidor com menos jogadores disponível",
+    Icon = "users",
     Style = "Primary",
     Callback = function()
         local ok, err = pcall(function()
-            local TeleportService = game:GetService("TeleportService")
-            local HttpService2 = game:GetService("HttpService")
-            local placeId = game.PlaceId
-            local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(placeId)
-            local req = request or http_request or (syn and syn.request) or (http and http.request)
-            if not req then
-                error("executor sem request")
-            end
-            local res = req({ Url = url, Method = "GET" })
-            local body = type(res) == "table" and (res.Body or res.body) or nil
-            local data = HttpService2:JSONDecode(body)
-            local servers = data and data.data or {}
-            local target
-            for _, s in ipairs(servers) do
-                if s.id and s.playing < s.maxPlayers and s.id ~= game.JobId then
-                    target = s.id
-                    break
+            local candidates = {}
+            local cursor = ""
+            for page = 1, 3 do
+                local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(game.PlaceId)
+                if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+                local req = request or http_request or (syn and syn.request) or (http and http.request)
+                local body
+                if type(req) == "function" then
+                    local res = req({ Url = url, Method = "GET" })
+                    body = type(res) == "table" and (res.Body or res.body) or nil
                 end
+                if not body then body = game:HttpGet(url) end
+                local data = HttpService:JSONDecode(body)
+                if not data or not data.data then break end
+                for _, s in ipairs(data.data) do
+                    if tonumber(s.maxPlayers) > tonumber(s.playing) and tostring(s.id) ~= game.JobId then
+                        table.insert(candidates, { id = tostring(s.id), playing = tonumber(s.playing) })
+                    end
+                end
+                cursor = data.nextPageCursor
+                if not cursor or cursor == "null" then break end
+                task.wait(0.3)
             end
-            if not target then
-                error("nenhum servidor disponível")
-            end
-            TeleportService:TeleportToPlaceInstance(placeId, target, LocalPlayer)
+            if #candidates == 0 then error("nenhum servidor com vaga") end
+            table.sort(candidates, function(a, b) return a.playing < b.playing end)
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, candidates[1].id, LocalPlayer)
         end)
         if ok then
-            Window:Notify({ Title = "Hop", Content = "Teleportando...", Icon = "shuffle", Type = "Success", Duration = 3 })
+            Window:Notify({ Title = "Join Low Player", Content = "Teleportando...", Icon = "users", Type = "Success", Duration = 3 })
         else
-            Window:Notify({ Title = "Hop falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
+            Window:Notify({ Title = "Falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
         end
     end,
 })
@@ -5721,7 +5751,12 @@ MiscTab:CreateButton({
     Icon = "refresh-cw",
     Callback = function()
         local ok, err = pcall(function()
-            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+            local jobId = game.JobId
+            if jobId and jobId ~= "" then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, LocalPlayer)
+            else
+                TeleportService:Teleport(game.PlaceId, LocalPlayer)
+            end
         end)
         if ok then
             Window:Notify({ Title = "Rejoin", Content = "Voltando...", Icon = "refresh-cw", Type = "Success", Duration = 3 })
@@ -5741,35 +5776,6 @@ MiscTab:CreateButton({
             Window:Notify({ Title = "Copiado", Content = game.JobId, Icon = "check", Type = "Success", Duration = 3 })
         else
             Window:Notify({ Title = "Erro", Content = "Não foi possível copiar.", Icon = "x", Type = "Error", Duration = 3 })
-        end
-    end,
-})
-
-local joinJobInput = MiscTab:CreateInput({
-    Name = "Join JobId",
-    Desc = "Cole o JobID do servidor",
-    Placeholder = "JobId aqui",
-    Icon = "link",
-})
-
-MiscTab:CreateButton({
-    Name = "Join",
-    Desc = "Entra no servidor do JobID",
-    Icon = "log-in",
-    Style = "Primary",
-    Callback = function()
-        local jobId = joinJobInput:Get()
-        if not jobId or #jobId < 5 then
-            Window:Notify({ Title = "JobId inválido", Content = "Cole um JobID válido.", Icon = "x", Type = "Error", Duration = 3 })
-            return
-        end
-        local ok, err = pcall(function()
-            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, jobId, LocalPlayer)
-        end)
-        if ok then
-            Window:Notify({ Title = "Join", Content = "Teleportando para " .. jobId, Icon = "log-in", Type = "Success", Duration = 3 })
-        else
-            Window:Notify({ Title = "Join falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
         end
     end,
 })
