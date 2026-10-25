@@ -1,7 +1,3 @@
---==================================================================
--- ez. HUB + KEY SYSTEM + FARM INTEGRADO
---==================================================================
-
 local Players           = game:GetService("Players")
 local UserInputService  = game:GetService("UserInputService")
 local TweenService      = game:GetService("TweenService")
@@ -319,14 +315,86 @@ local function buildKeyScreen(onSuccess)
     discordBtn.MouseLeave:Connect(function()
         tween(discordStroke, { Color = C.Stroke }, 0.2)
     end)
+
+    local function keyToast(title, content, color, icon)
+        local holder = create("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0),
+            Position = UDim2.new(0.5, 0, 0, 16),
+            Size = UDim2.fromOffset(300, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+            ZIndex = 20,
+            Parent = gui,
+        })
+        local shadowT = create("ImageLabel", {
+            Position = UDim2.fromOffset(-20, -20), Size = UDim2.new(1, 40, 1, 40),
+            BackgroundTransparency = 1, Image = SHADOW, ImageColor3 = Color3.new(0,0,0),
+            ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice,
+            SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 19, Parent = holder,
+        })
+        local toast = create("CanvasGroup", {
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = C.Background, BorderSizePixel = 0,
+            GroupTransparency = 1, ZIndex = 20, Parent = holder,
+        })
+        corner(toast, UDim.new(0, 10))
+        local toastStroke = stroke(toast, C.Stroke)
+        local inner = create("Frame", {
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1, Parent = toast,
+        })
+        create("UIPadding", {
+            PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16),
+            PaddingTop = UDim.new(0, 14), PaddingBottom = UDim.new(0, 18),
+            Parent = inner,
+        })
+        local titleOffset = 0
+        if icon then
+            local holderIcon = create("Frame", {
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 0, 0, 8),
+                Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Parent = inner,
+            })
+            local img = create("ImageLabel", {
+                Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+                ImageColor3 = color, ScaleType = Enum.ScaleType.Fit, Parent = holderIcon,
+            })
+            applyIcon(img, icon)
+            titleOffset = 24
+        end
+        label({
+            Position = UDim2.fromOffset(titleOffset, 0),
+            Size = UDim2.new(1, -titleOffset, 0, 16),
+            Text = title, TextSize = 14, TextColor3 = color, Parent = inner,
+        })
+        if content then
+            label({
+                Position = UDim2.fromOffset(titleOffset, 21),
+                Size = UDim2.new(1, -titleOffset, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                Text = content, TextSize = 13, FontFace = FONT,
+                TextColor3 = C.Muted, TextWrapped = true,
+                TextTruncate = Enum.TextTruncate.None,
+                TextYAlignment = Enum.TextYAlignment.Top, Parent = inner,
+            })
+        end
+        tween(holder, { Position = UDim2.new(0.5, 0, 0, 16) }, 0.4, Enum.EasingStyle.Back)
+        tween(toast, { GroupTransparency = 0 }, 0.3)
+        tween(shadowT, { ImageTransparency = 0.6 }, 0.4)
+        task.delay(3, function()
+            tween(toast, { GroupTransparency = 1 }, 0.2)
+            tween(toastStroke, { Transparency = 1 }, 0.15)
+            tween(shadowT, { ImageTransparency = 1 }, 0.2)
+            task.delay(0.25, function() holder:Destroy() end)
+        end)
+    end
+
     discordBtn.MouseButton1Click:Connect(function()
         local ok = pcall(function() setclipboard(CONFIG.Discord) end)
         if ok then
-            status.Text = "Link do Discord copiado!"
-            status.TextColor3 = C.Success
+            keyToast("Copiado", "Link do Discord copiado.", C.Success, "check")
         else
-            status.Text = "Não foi possível copiar"
-            status.TextColor3 = C.Error
+            keyToast("Erro", "Não foi possível copiar.", C.Error, "x")
         end
     end)
 
@@ -5497,6 +5565,213 @@ FarmingTab:CreateLabel({
         return Farm.Active and "Estado: coletando moedas" or "Estado: parado"
     end,
     UpdateRate = 0.5,
+})
+
+local MiscTab = Window:CreateTab({ Name = "Misc", Desc = "Utilidades e servidores", Icon = "wrench" })
+
+MiscTab:CreateSection("Player")
+
+local FlingActive = false
+local FlingConn = nil
+
+local flingToggle
+
+flingToggle = MiscTab:CreateToggle({
+    Name = "Fling Scripters",
+    Desc = "Dá fling em qualquer jogador que tocar em você",
+    Default = false,
+    Flag = "FlingScripters",
+    Callback = function(value)
+        if value then
+            FlingActive = true
+            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then
+                FlingActive = false
+                if flingToggle then flingToggle:Set(false) end
+                Window:Notify({ Title = "Fling falhou", Content = "Personagem não encontrado.", Icon = "x", Type = "Error", Duration = 3 })
+                return
+            end
+            local touched = {}
+            FlingConn = hrp.Touched:Connect(function(hit)
+                if not FlingActive then return end
+                local other = hit and hit.Parent
+                if not other then return end
+                local otherHum = other:FindFirstChildOfClass("Humanoid")
+                local otherHrp = other:FindFirstChild("HumanoidRootPart")
+                if not otherHum or not otherHrp then return end
+                if other == char then return end
+                if touched[other] then return end
+                touched[other] = true
+                task.delay(1, function() touched[other] = nil end)
+                pcall(function()
+                    otherHrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 0)
+                    otherHrp.Velocity = Vector3.new(1e5, 1e5, 1e5)
+                end)
+            end)
+            Window:Notify({ Title = "Fling ligado", Content = "Quem te tocar vai voar.", Icon = "wind", Type = "Success", Duration = 3 })
+        else
+            FlingActive = false
+            if FlingConn then
+                FlingConn:Disconnect()
+                FlingConn = nil
+            end
+            Window:Notify({ Title = "Fling desligado", Content = "Fling encerrado.", Icon = "wind", Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+local boosterToggle
+
+boosterToggle = MiscTab:CreateToggle({
+    Name = "ezBooster",
+    Desc = "Reduz a qualidade gráfica para rodar mais leve",
+    Default = false,
+    Flag = "ezBooster",
+    Callback = function(value)
+        if value then
+            for _, obj in ipairs(game:GetDescendants()) do
+                pcall(function()
+                    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                        obj.Enabled = false
+                    elseif obj:IsA("Texture") or obj:IsA("Decal") then
+                        obj.Transparency = 1
+                    elseif obj:IsA("MeshPart") then
+                        obj.TextureID = ""
+                    elseif obj:IsA("Light") then
+                        obj.Enabled = false
+                    end
+                end)
+            end
+            pcall(function()
+                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                settings().Rendering.EditableImageQualityLevel = Enum.EditableImageQualityLevel.Level1
+            end)
+            Window:Notify({ Title = "ezBooster ligado", Content = "Qualidade reduzida.", Icon = "zap", Type = "Success", Duration = 3 })
+        else
+            pcall(function()
+                settings().Rendering.QualityLevel = Enum.QualityLevel.Level10
+            end)
+            Window:Notify({ Title = "ezBooster desligado", Content = "Qualidade restaurada.", Icon = "zap", Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Reset Player",
+    Desc = "Mata o seu personagem",
+    Icon = "rotate-ccw",
+    Callback = function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Health = 0
+            Window:Notify({ Title = "Resetado", Content = "Personagem morto.", Icon = "rotate-ccw", Type = "Success", Duration = 2 })
+        else
+            Window:Notify({ Title = "Falha", Content = "Personagem não encontrado.", Icon = "x", Type = "Error", Duration = 2 })
+        end
+    end,
+})
+
+MiscTab:CreateSection("Server")
+
+MiscTab:CreateButton({
+    Name = "Hop Server",
+    Desc = "Troca para outro servidor",
+    Icon = "shuffle",
+    Style = "Primary",
+    Callback = function()
+        local ok, err = pcall(function()
+            local TeleportService = game:GetService("TeleportService")
+            local HttpService2 = game:GetService("HttpService")
+            local placeId = game.PlaceId
+            local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(placeId)
+            local req = request or http_request or (syn and syn.request) or (http and http.request)
+            if not req then
+                error("executor sem request")
+            end
+            local res = req({ Url = url, Method = "GET" })
+            local body = type(res) == "table" and (res.Body or res.body) or nil
+            local data = HttpService2:JSONDecode(body)
+            local servers = data and data.data or {}
+            local target
+            for _, s in ipairs(servers) do
+                if s.id and s.playing < s.maxPlayers and s.id ~= game.JobId then
+                    target = s.id
+                    break
+                end
+            end
+            if not target then
+                error("nenhum servidor disponível")
+            end
+            TeleportService:TeleportToPlaceInstance(placeId, target, LocalPlayer)
+        end)
+        if ok then
+            Window:Notify({ Title = "Hop", Content = "Teleportando...", Icon = "shuffle", Type = "Success", Duration = 3 })
+        else
+            Window:Notify({ Title = "Hop falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
+        end
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Rejoin",
+    Desc = "Volta para este mesmo servidor",
+    Icon = "refresh-cw",
+    Callback = function()
+        local ok, err = pcall(function()
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+        end)
+        if ok then
+            Window:Notify({ Title = "Rejoin", Content = "Voltando...", Icon = "refresh-cw", Type = "Success", Duration = 3 })
+        else
+            Window:Notify({ Title = "Rejoin falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
+        end
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Copy JobID",
+    Desc = "Copia o ID deste servidor",
+    Icon = "copy",
+    Callback = function()
+        local ok = pcall(function() setclipboard(game.JobId) end)
+        if ok then
+            Window:Notify({ Title = "Copiado", Content = game.JobId, Icon = "check", Type = "Success", Duration = 3 })
+        else
+            Window:Notify({ Title = "Erro", Content = "Não foi possível copiar.", Icon = "x", Type = "Error", Duration = 3 })
+        end
+    end,
+})
+
+local joinJobInput = MiscTab:CreateInput({
+    Name = "Join JobId",
+    Desc = "Cole o JobID do servidor",
+    Placeholder = "JobId aqui",
+    Icon = "link",
+})
+
+MiscTab:CreateButton({
+    Name = "Join",
+    Desc = "Entra no servidor do JobID",
+    Icon = "log-in",
+    Style = "Primary",
+    Callback = function()
+        local jobId = joinJobInput:Get()
+        if not jobId or #jobId < 5 then
+            Window:Notify({ Title = "JobId inválido", Content = "Cole um JobID válido.", Icon = "x", Type = "Error", Duration = 3 })
+            return
+        end
+        local ok, err = pcall(function()
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, jobId, LocalPlayer)
+        end)
+        if ok then
+            Window:Notify({ Title = "Join", Content = "Teleportando para " .. jobId, Icon = "log-in", Type = "Success", Duration = 3 })
+        else
+            Window:Notify({ Title = "Join falhou", Content = tostring(err), Icon = "x", Type = "Error", Duration = 3 })
+        end
+    end,
 })
 
 end
