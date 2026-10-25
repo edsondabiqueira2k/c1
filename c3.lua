@@ -1,5 +1,5 @@
 --==================================================================
--- 1337 HUB + KEY SYSTEM + FARM INTEGRADO
+-- ez. HUB + KEY SYSTEM + FARM INTEGRADO
 --==================================================================
 
 local Players           = game:GetService("Players")
@@ -16,6 +16,7 @@ local CONFIG = {
     KeyFolder  = "ezconfig",
     Title      = "ez.",
     Subtitle   = "Key system",
+    Discord    = "https://discord.gg/JpYQCYmB8R",
 }
 
 local C = {
@@ -181,7 +182,7 @@ end
 
 local function buildKeyScreen(onSuccess)
     local gui = create("ScreenGui", {
-        Name = "1337Key",
+        Name = "ezKey",
         IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 999,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
@@ -192,7 +193,7 @@ local function buildKeyScreen(onSuccess)
 
     local root = create("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(420, 260), BackgroundTransparency = 1, Parent = gui,
+        Size = UDim2.fromOffset(420, 300), BackgroundTransparency = 1, Parent = gui,
     })
     local scale = create("UIScale", { Scale = 0.9, Parent = root })
 
@@ -243,13 +244,13 @@ local function buildKeyScreen(onSuccess)
     })
 
     label({
-        Position = UDim2.fromOffset(28, 100), Size = UDim2.new(1, -56, 0, 14),
+        Position = UDim2.fromOffset(28, 90), Size = UDim2.new(1, -56, 0, 14),
         Text = "Key de licença", TextSize = 11, FontFace = FONT,
         TextColor3 = C.Muted, Parent = body,
     })
 
     local inputHolder = create("Frame", {
-        Position = UDim2.fromOffset(28, 120), Size = UDim2.new(1, -56, 0, 40),
+        Position = UDim2.fromOffset(28, 110), Size = UDim2.new(1, -56, 0, 40),
         BackgroundColor3 = C.Surface, BorderSizePixel = 0, Parent = body,
     })
     corner(inputHolder, UDim.new(0, 8))
@@ -269,12 +270,12 @@ local function buildKeyScreen(onSuccess)
     end)
 
     local status = label({
-        Position = UDim2.fromOffset(28, 170), Size = UDim2.new(1, -56, 0, 16),
+        Position = UDim2.fromOffset(28, 156), Size = UDim2.new(1, -56, 0, 16),
         Text = "", TextSize = 12, FontFace = FONT, TextColor3 = C.Muted, Parent = body,
     })
 
     local submit = create("TextButton", {
-        Position = UDim2.fromOffset(28, 196), Size = UDim2.new(1, -56, 0, 40),
+        Position = UDim2.fromOffset(28, 180), Size = UDim2.new(1, -56, 0, 40),
         BackgroundColor3 = C.Accent, BackgroundTransparency = 0.12,
         BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = body,
     })
@@ -294,8 +295,43 @@ local function buildKeyScreen(onSuccess)
         tween(submitStroke, { Transparency = 0.4 }, 0.2)
     end)
 
+    local discordBtn = create("TextButton", {
+        Position = UDim2.fromOffset(28, 228), Size = UDim2.new(1, -56, 0, 34),
+        BackgroundColor3 = C.Surface, BackgroundTransparency = 0,
+        BorderSizePixel = 0, Text = "", AutoButtonColor = false, Parent = body,
+    })
+    corner(discordBtn, UDim.new(0, 8))
+    local discordStroke = stroke(discordBtn, C.Stroke)
+    local discordIcon = create("ImageLabel", {
+        Position = UDim2.fromOffset(12, 7), Size = UDim2.fromOffset(20, 20),
+        BackgroundTransparency = 1, ImageColor3 = C.Accent,
+        ScaleType = Enum.ScaleType.Fit, Parent = discordBtn,
+    })
+    applyIcon(discordIcon, "message-circle")
     label({
-        Position = UDim2.fromOffset(28, 240), Size = UDim2.new(1, -56, 0, 14),
+        Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -52, 1, 0),
+        Text = "Copiar link do Discord", TextSize = 13,
+        TextColor3 = C.Text, Parent = discordBtn,
+    })
+    discordBtn.MouseEnter:Connect(function()
+        tween(discordStroke, { Color = C.StrokeHover }, 0.12)
+    end)
+    discordBtn.MouseLeave:Connect(function()
+        tween(discordStroke, { Color = C.Stroke }, 0.2)
+    end)
+    discordBtn.MouseButton1Click:Connect(function()
+        local ok = pcall(function() setclipboard(CONFIG.Discord) end)
+        if ok then
+            status.Text = "Link do Discord copiado!"
+            status.TextColor3 = C.Success
+        else
+            status.Text = "Não foi possível copiar"
+            status.TextColor3 = C.Error
+        end
+    end)
+
+    label({
+        Position = UDim2.fromOffset(28, 270), Size = UDim2.new(1, -56, 0, 14),
         Text = "Sua key fica salva, você só digita uma vez",
         TextSize = 11, FontFace = FONT, TextColor3 = C.Muted, Parent = body,
     })
@@ -329,12 +365,12 @@ local function buildKeyScreen(onSuccess)
             status.Text = "Key inválida"
             status.TextColor3 = C.Error
             tween(inputStroke, { Color = C.Error }, 0.1)
-            tween(inputHolder, { Position = UDim2.fromOffset(28 + 6, 120) }, 0.06)
+            tween(inputHolder, { Position = UDim2.fromOffset(28 + 6, 110) }, 0.06)
             task.delay(0.06, function()
-                tween(inputHolder, { Position = UDim2.fromOffset(28 - 6, 120) }, 0.06)
+                tween(inputHolder, { Position = UDim2.fromOffset(28 - 6, 110) }, 0.06)
             end)
             task.delay(0.12, function()
-                tween(inputHolder, { Position = UDim2.fromOffset(28, 120) }, 0.12, Enum.EasingStyle.Back)
+                tween(inputHolder, { Position = UDim2.fromOffset(28, 110) }, 0.12, Enum.EasingStyle.Back)
                 tween(inputStroke, { Color = C.Stroke }, 0.3)
             end)
         end
@@ -391,7 +427,7 @@ end
 local function buildFarmGui()
     if Farm.Gui then Farm.Gui:Destroy() end
     local gui = create("ScreenGui", {
-        Name = "1337FarmHUD",
+        Name = "ezFarmHUD",
         IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 998,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
@@ -421,7 +457,7 @@ local function buildFarmGui()
 
     label({
         Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 18),
-        Text = "1337 · Farming", TextSize = 14, Parent = frame,
+        Text = "ez. · Farming", TextSize = 14, Parent = frame,
     })
 
     local coinsLabel = label({
@@ -2531,9 +2567,7 @@ function Tab:ColorPicker(opts)
             hexBox.Text = toHex(color)
         end
         rgbLabel.Text = string.format("RGB %d, %d, %d",
-            math.floor(color.R * 255 + 0.5),
-            math.floor(color.G * 255 + 0.5),
-            math.floor(color.B * 255 + 0.5))
+            math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
     end
 
     local function commit(duration, silent)
@@ -3030,7 +3064,7 @@ function Library.Window(_, opts)
     table.insert(self._connections, UserInputService.InputEnded:Connect(dispatch("Ended")))
 
     local gui = create("ScreenGui", {
-        Name = opts.Name or "1337UI",
+        Name = opts.Name or "ezUI",
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
         DisplayOrder = 999,
@@ -3112,7 +3146,7 @@ function Library.Window(_, opts)
     label({
         Position = UDim2.fromOffset(60, 25),
         Size = UDim2.new(1, -70, 0, 20),
-        Text = opts.Title or "1337",
+        Text = opts.Title or "ez.",
         TextSize = 20,
         Parent = header,
     })
@@ -3299,11 +3333,11 @@ function Library.Window(_, opts)
 
     local saving = opts.ConfigurationSaving
     if type(saving) == "table" and saving.Enabled ~= false then
-        self.ConfigFolder = saving.FolderName or "1337"
+        self.ConfigFolder = saving.FolderName or "ez"
         self.ConfigName = saving.FileName or "default"
         self._autoSaveEnabled = true
     else
-        self.ConfigFolder = "1337"
+        self.ConfigFolder = "ez"
         self.ConfigName = "default"
         self._autoSaveEnabled = false
     end
@@ -3592,7 +3626,7 @@ function Window:_showLoader(opts)
     label({
         Position = UDim2.fromOffset(78, 30),
         Size = UDim2.new(1, -100, 0, 22),
-        Text = opts.LoadingTitle or opts.Title or "1337",
+        Text = opts.LoadingTitle or opts.Title or "ez.",
         TextSize = 20,
         Parent = loader,
     })
