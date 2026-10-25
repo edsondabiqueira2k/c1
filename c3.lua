@@ -525,7 +525,7 @@ local function buildFarmGui()
 
     label({
         Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 18),
-        Text = "ez. · Farming", TextSize = 14, Parent = frame,
+        Text = "ez. · Farming - discord.gg/JpYQCYmB8R", TextSize = 14, Parent = frame,
     })
 
     local coinsLabel = label({
@@ -5572,172 +5572,77 @@ local MiscTab = Window:CreateTab({ Name = "Misc", Desc = "Utilidades e servidore
 
 MiscTab:CreateSection("Player")
 
-local FlingActive = false
-local FlingConn = nil
-local FlingThread = nil
+local boosterActive = false
+local boosterConnections = {}
+local boosterToggle
 
-local flingToggle
-
-flingToggle = MiscTab:CreateToggle({
-    Name = "Auto Fling",
-    Desc = "Voa até os jogadores e dá walkfling ao encostar",
-    Default = false,
-    Flag = "AutoFling",
-    Callback = function(value)
-        FlingActive = value
-
-        if FlingConn then
-            FlingConn:Disconnect()
-            FlingConn = nil
-        end
-        if FlingThread then
-            task.cancel(FlingThread)
-            FlingThread = nil
-        end
-
-        if not value then
-            Window:Notify({ Title = "Auto Fling desligado", Content = "Fling encerrado.", Icon = "wind", Type = "Info", Duration = 2 })
-            return
-        end
-
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hrp or not hum then
-            FlingActive = false
-            if flingToggle then flingToggle:Set(false) end
-            Window:Notify({ Title = "Fling falhou", Content = "Personagem não encontrado.", Icon = "x", Type = "Error", Duration = 3 })
-            return
-        end
-
-        local function applyFling(targetChar)
-            local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
-            local tHum = targetChar:FindFirstChildOfClass("Humanoid")
-            if not tHrp or not tHum or tHum.Health <= 0 then return end
-            local spin = Instance.new("BodyAngularVelocity")
-            spin.AngularVelocity = Vector3.new(0, 20000, 0)
-            spin.MaxTorque = Vector3.new(50000, 50000, 50000)
-            spin.P = 1250
-            spin.Parent = tHrp
-            local force = Instance.new("BodyForce")
-            force.Force = Vector3.new(0, workspace.Gravity * tHrp:GetMass() * 2, 0)
-            force.Parent = tHrp
-            task.delay(0.5, function()
-                if spin and spin.Parent then spin:Destroy() end
-                if force and force.Parent then force:Destroy() end
-            end)
-        end
-
-        local touched = {}
-        FlingConn = hrp.Touched:Connect(function(hit)
-            if not FlingActive then return end
-            local other = hit and hit.Parent
-            if not other or other == char then return end
-            local otherHum = other:FindFirstChildOfClass("Humanoid")
-            if not otherHum or otherHum.Health <= 0 then return end
-            if touched[other] then return end
-            touched[other] = true
-            task.delay(1, function() touched[other] = nil end)
-            pcall(applyFling, other)
-        end)
-
-        FlingThread = task.spawn(function()
-            local FLY_SPEED = 150
-            local targetIndex = 1
-            local movel = 0.1
-
-            while FlingActive do
-                local c = LocalPlayer.Character
-                local r = c and c:FindFirstChild("HumanoidRootPart")
-                local h = c and c:FindFirstChildOfClass("Humanoid")
-                if not r or not r.Parent or not h or h.Health <= 0 then
-                    task.wait(0.5)
-                    continue
-                end
-
-                local targets = {}
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Character then
-                        local tR = plr.Character:FindFirstChild("HumanoidRootPart")
-                        local tH = plr.Character:FindFirstChildOfClass("Humanoid")
-                        if tR and tH and tH.Health > 0 then
-                            table.insert(targets, { root = tR })
-                        end
-                    end
-                end
-
-                if #targets == 0 then
-                    task.wait(0.5)
-                    continue
-                end
-
-                if targetIndex > #targets then targetIndex = 1 end
-                local target = targets[targetIndex]
-                local tRoot = target.root
-                if not tRoot or not tRoot.Parent then
-                    targetIndex += 1
-                    task.wait(0.2)
-                    continue
-                end
-
-                local dir = tRoot.Position - r.Position
-                local dist = dir.Magnitude
-
-                if dist > 3 then
-                    r.Velocity = dir.Unit * FLY_SPEED + Vector3.new(0, 10, 0)
-                else
-                    local vel = r.Velocity
-                    r.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
-                    RunService.RenderStepped:Wait()
-                    if r and r.Parent then r.Velocity = vel end
-                    RunService.Stepped:Wait()
-                    if r and r.Parent then
-                        r.Velocity = vel + Vector3.new(0, movel, 0)
-                        movel = movel * -1
-                    end
-                    pcall(applyFling, tRoot.Parent)
-                    targetIndex += 1
-                end
-
-                task.wait()
+local function applyBooster()
+    for _, obj in ipairs(game:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+            elseif obj:IsA("Texture") or obj:IsA("Decal") then
+                obj.Transparency = 1
+            elseif obj:IsA("MeshPart") then
+                obj.TextureID = ""
+            elseif obj:IsA("Light") then
+                obj.Enabled = false
             end
         end)
+    end
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        settings().Rendering.EditableImageQualityLevel = Enum.EditableImageQualityLevel.Level1
+    end)
+end
 
-        Window:Notify({ Title = "Auto Fling ligado", Content = "Voando até os jogadores.", Icon = "wind", Type = "Success", Duration = 3 })
-    end,
-})
+local function startBooster()
+    boosterActive = true
+    applyBooster()
 
-local boosterToggle
+    table.insert(boosterConnections, workspace.DescendantAdded:Connect(function(obj)
+        if not boosterActive then return end
+        pcall(function()
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+            elseif obj:IsA("Texture") or obj:IsA("Decal") then
+                obj.Transparency = 1
+            elseif obj:IsA("MeshPart") then
+                obj.TextureID = ""
+            elseif obj:IsA("Light") then
+                obj.Enabled = false
+            end
+        end)
+    end))
+
+    table.insert(boosterConnections, Players.LocalPlayer.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if boosterActive then applyBooster() end
+    end))
+end
+
+local function stopBooster()
+    boosterActive = false
+    for _, c in ipairs(boosterConnections) do
+        pcall(function() c:Disconnect() end)
+    end
+    boosterConnections = {}
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level10
+    end)
+end
 
 boosterToggle = MiscTab:CreateToggle({
     Name = "ezBooster",
-    Desc = "Reduz a qualidade gráfica para rodar mais leve",
+    Desc = "Reduz a qualidade gráfica permanentemente",
     Default = false,
     Flag = "ezBooster",
     Callback = function(value)
         if value then
-            for _, obj in ipairs(game:GetDescendants()) do
-                pcall(function()
-                    if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
-                        obj.Enabled = false
-                    elseif obj:IsA("Texture") or obj:IsA("Decal") then
-                        obj.Transparency = 1
-                    elseif obj:IsA("MeshPart") then
-                        obj.TextureID = ""
-                    elseif obj:IsA("Light") then
-                        obj.Enabled = false
-                    end
-                end)
-            end
-            pcall(function()
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-                settings().Rendering.EditableImageQualityLevel = Enum.EditableImageQualityLevel.Level1
-            end)
-            Window:Notify({ Title = "ezBooster ligado", Content = "Qualidade reduzida.", Icon = "zap", Type = "Success", Duration = 3 })
+            startBooster()
+            Window:Notify({ Title = "ezBooster ligado", Content = "Qualidade reduzida até desligar.", Icon = "zap", Type = "Success", Duration = 3 })
         else
-            pcall(function()
-                settings().Rendering.QualityLevel = Enum.QualityLevel.Level10
-            end)
+            stopBooster()
             Window:Notify({ Title = "ezBooster desligado", Content = "Qualidade restaurada.", Icon = "zap", Type = "Info", Duration = 2 })
         end
     end,
