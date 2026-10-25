@@ -5634,7 +5634,7 @@ end
 
 boosterToggle = MiscTab:CreateToggle({
     Name = "ezBooster",
-    Desc = "Reduz a qualidade gráfica permanentemente",
+    Desc = "Reduz a qualidade gráfica",
     Default = false,
     Flag = "ezBooster",
     Callback = function(value)
@@ -5699,7 +5699,7 @@ local antiKickToggle
 
 antiKickToggle = MiscTab:CreateToggle({
     Name = "Anti-Kick",
-    Desc = "Bloqueia o Kick() do seu jogador (requer hookfunction)",
+    Desc = "Bloqueia o Kick() do seu jogador",
     Default = false,
     Flag = "AntiKick",
     Callback = function(value)
