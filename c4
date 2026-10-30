@@ -1,0 +1,208 @@
+-- Lua / ESP.lua / Roblox Studio / LocalScript
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local Config = {
+    Enabled = true,
+    Box = true,
+    Name = true,
+    Distance = true,
+    Health = true,
+    TeamCheck = true,
+
+    MaxDistance = 2000,
+
+    EnemyColor = Color3.fromRGB(255, 65, 85),
+    FriendlyColor = Color3.fromRGB(120, 120, 120),
+    TextColor = Color3.fromRGB(255, 255, 255)
+}
+
+local ESP = {}
+
+local function Create(class, properties)
+    local object = Drawing.new(class)
+
+    for property, value in pairs(properties) do
+        object[property] = value
+    end
+
+    return object
+end
+
+local function CreatePlayerESP(player)
+    if player == LocalPlayer then
+        return
+    end
+
+    local data = {
+        Box = Create("Square", {
+            Thickness = 1.5,
+            Filled = false,
+            Visible = false
+        }),
+
+        Name = Create("Text", {
+            Size = 13,
+            Center = true,
+            Outline = true,
+            Visible = false
+        }),
+
+        Distance = Create("Text", {
+            Size = 12,
+            Center = true,
+            Outline = true,
+            Visible = false
+        }),
+
+        HealthBackground = Create("Square", {
+            Filled = true,
+            Thickness = 0,
+            Visible = false
+        }),
+
+        HealthBar = Create("Square", {
+            Filled = true,
+            Thickness = 0,
+            Visible = false
+        })
+    }
+
+    ESP[player] = data
+end
+
+local function Hide(data)
+    for _, object in pairs(data) do
+        object.Visible = false
+    end
+end
+
+local function UpdatePlayer(player, data)
+    local character = player.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not character or not humanoid or not root or humanoid.Health <= 0 then
+        Hide(data)
+        return
+    end
+
+    if Config.TeamCheck and player.Team == LocalPlayer.Team then
+        Hide(data)
+        return
+    end
+
+    local distance = (Camera.CFrame.Position - root.Position).Magnitude
+
+    if distance > Config.MaxDistance then
+        Hide(data)
+        return
+    end
+
+    local position, visible = Camera:WorldToViewportPoint(root.Position)
+
+    if not visible or position.Z <= 0 then
+        Hide(data)
+        return
+    end
+
+    local scale = math.clamp(2500 / position.Z, 2, 300)
+    local width = scale * 0.65
+    local height = scale * 1.4
+
+    local x = position.X - width / 2
+    local y = position.Y - height / 2
+
+    local color = Config.EnemyColor
+
+    if Config.Box then
+        data.Box.Visible = true
+        data.Box.Position = Vector2.new(x, y)
+        data.Box.Size = Vector2.new(width, height)
+        data.Box.Color = color
+    else
+        data.Box.Visible = false
+    end
+
+    if Config.Name then
+        data.Name.Visible = true
+        data.Name.Text = player.DisplayName
+        data.Name.Position = Vector2.new(position.X, y - 17)
+        data.Name.Color = Config.TextColor
+    else
+        data.Name.Visible = false
+    end
+
+    if Config.Distance then
+        data.Distance.Visible = true
+        data.Distance.Text = math.floor(distance) .. "m"
+        data.Distance.Position = Vector2.new(position.X, y + height + 3)
+        data.Distance.Color = Config.TextColor
+    else
+        data.Distance.Visible = false
+    end
+
+    if Config.Health then
+        local health = math.clamp(
+            humanoid.Health / humanoid.MaxHealth,
+            0,
+            1
+        )
+
+        data.HealthBackground.Visible = true
+        data.HealthBackground.Position = Vector2.new(x - 5, y)
+        data.HealthBackground.Size = Vector2.new(3, height)
+        data.HealthBackground.Color = Color3.fromRGB(20, 20, 20)
+
+        data.HealthBar.Visible = true
+        data.HealthBar.Position = Vector2.new(
+            x - 5,
+            y + height * (1 - health)
+        )
+
+        data.HealthBar.Size = Vector2.new(3, height * health)
+        data.HealthBar.Color = Color3.fromRGB(
+            255 * (1 - health),
+            255 * health,
+            50
+        )
+    else
+        data.HealthBackground.Visible = false
+        data.HealthBar.Visible = false
+    end
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    CreatePlayerESP(player)
+end
+
+Players.PlayerAdded:Connect(CreatePlayerESP)
+
+Players.PlayerRemoving:Connect(function(player)
+    local data = ESP[player]
+
+    if data then
+        for _, object in pairs(data) do
+            object:Remove()
+        end
+
+        ESP[player] = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not Config.Enabled then
+        for _, data in pairs(ESP) do
+            Hide(data)
+        end
+
+        return
+    end
+
+    for player, data in pairs(ESP) do
+        UpdatePlayer(player, data)
+    end
+end)
